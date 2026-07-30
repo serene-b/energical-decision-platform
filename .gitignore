@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Data
+data/RawData/*
+data/CleanData/*
+data/External/*
+
+!data/RawData/.gitkeep
+!data/CleanData/.gitkeep
+!data/External/.gitkeep
+
+# Node
+node_modules/
+
+# Environment
+.env
+.venv/
+venv/
+
+# VSCode
+.vscode/
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
