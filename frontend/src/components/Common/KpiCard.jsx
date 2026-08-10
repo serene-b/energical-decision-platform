@@ -65,9 +65,27 @@ function KpiCard({
   trend,
   icon,
   accent = false,
+  onClick,
+  actionLabel,
 }) {
+  const isInteractive = typeof onClick === "function";
+
+  const handleKeyDown = (event) => {
+    if (isInteractive && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      onClick();
+    }
+  };
+
   return (
-    <article className={`kpi-card ${accent ? "kpi-card-accent" : ""}`}>
+    <article
+      className={`kpi-card ${accent ? "kpi-card-accent" : ""} ${isInteractive ? "kpi-card--interactive" : ""}`}
+      onClick={isInteractive ? onClick : undefined}
+      onKeyDown={handleKeyDown}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      aria-label={isInteractive ? actionLabel || title : undefined}
+    >
       <div className="kpi-card-header">
         <p className="kpi-title">{title}</p>
 
@@ -79,6 +97,12 @@ function KpiCard({
       <h3 className="kpi-value">{value}</h3>
       <p className="kpi-description">{description}</p>
       <p className="kpi-trend">{trend}</p>
+
+      {isInteractive && (
+        <span className="kpi-card-action" aria-hidden="true">
+          Explore <span>→</span>
+        </span>
+      )}
     </article>
   );
 }

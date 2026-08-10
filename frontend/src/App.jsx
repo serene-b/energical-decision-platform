@@ -1,98 +1,110 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Activity,
+  BellRing,
+  Boxes,
+  LayoutDashboard,
+  MapPinned,
+  TrendingUp,
+  UploadCloud,
+  Users,
+} from "lucide-react";
 
-import Sidebar from "./components/layout/Sidebar.jsx";
-import Topbar from "./components/layout/Topbar.jsx";
-import Footer from "./components/layout/Footer.jsx";
+import Sidebar from "./components/Layout/Sidebar.jsx";
+import Topbar from "./components/Layout/Topbar.jsx";
+import Footer from "./components/Layout/Footer.jsx";
+import CommandPalette from "./components/Common/CommandPalette.jsx";
+import {
+  ContextualAssistantDrawer,
+  ContextualInsightDrawer,
+} from "./components/Common/ContextualAssistant.jsx";
 
-import Overview from "./pages/Overview.jsx";
-import SalesIntelligence from "./pages/SalesIntelligence.jsx";
-import ClientIntelligence from "./pages/ClientIntelligence.jsx";
-import WilayaIntelligence from "./pages/WilayaIntelligence.jsx";
-import CustomerBehavior from "./pages/CustomerBehavior.jsx";
-import ProductsForecast from "./pages/ProductsForecast.jsx";
-import ActionsAlerts from "./pages/ActionsAlerts.jsx";
+import Overview from "./Pages/Overview.jsx";
+import SalesIntelligence from "./Pages/SalesIntelligence.jsx";
+import ClientIntelligence from "./Pages/ClientIntelligence.jsx";
+import WilayaIntelligence from "./Pages/WilayaIntelligence.jsx";
+import CustomerBehavior from "./Pages/CustomerBehavior.jsx";
+import ProductsForecast from "./Pages/ProductsForecast.jsx";
+import ActionsAlerts from "./Pages/ActionsAlerts.jsx";
+import DataUpload from "./Pages/DataUpload.jsx";
 
 const tabs = [
   {
-    id: "overview",
-    title: {
-      en: "Overview",
-      fr: "Vue d’ensemble",
-    },
+    id: "upload",
+    title: { en: "Data Upload", fr: "Import des données" },
     description: {
-      en: "Monitor revenue, customer risk, sales activity, and the three-month revenue forecast.",
+      en: "Validate a CSV, review data quality, and prepare an application refresh.",
+      fr: "Validez un CSV, contrôlez sa qualité et préparez l’actualisation de l’application.",
+    },
+    icon: UploadCloud,
+  },
+  {
+    id: "overview",
+    title: { en: "Overview", fr: "Vue d’ensemble" },
+    description: {
+      en: "Monitor approved revenue, order, customer, and data-quality signals from the latest processed run.",
       fr: "Suivez le chiffre d’affaires, les clients à risque, les ventes et les prévisions à trois mois.",
     },
+    icon: LayoutDashboard,
   },
   {
     id: "sales",
-    title: {
-      en: "Sales Intelligence",
-      fr: "Analyse des ventes",
-    },
+    title: { en: "Sales Intelligence", fr: "Analyse des ventes" },
     description: {
-      en: "Analyze total sales, average basket value, growth rate, and B2B versus B2C performance.",
+      en: "Analyze realized revenue, order volume, customer type, payment, and delivery aggregates.",
       fr: "Analysez les ventes totales, le panier moyen, le taux de croissance et les performances B2B et B2C.",
     },
+    icon: TrendingUp,
   },
   {
     id: "clients",
-    title: {
-      en: "Client Intelligence",
-      fr: "Analyse clients",
-    },
+    title: { en: "Client Intelligence", fr: "Analyse clients" },
     description: {
-      en: "Explore customer segments, client risk, B2B and B2C profiles, and individual customer information.",
+      en: "Explore aggregate customer type and geographic signals without exposing individual customer records.",
       fr: "Explorez les segments clients, les risques, les profils B2B et B2C ainsi que les informations individuelles.",
     },
+    icon: Users,
   },
   {
     id: "wilayas",
-    title: {
-      en: "Wilaya Intelligence",
-      fr: "Analyse par wilaya",
-    },
+    title: { en: "Wilaya Intelligence", fr: "Analyse par wilaya" },
     description: {
-      en: "Compare revenue, activity, risk, and business opportunities across Algerian wilayas.",
+      en: "Compare normalized-wilaya revenue, activity, customer coverage, and transparent period signals.",
       fr: "Comparez les revenus, l’activité, les risques et les opportunités commerciales entre les wilayas.",
     },
+    icon: MapPinned,
   },
   {
     id: "behavior",
-    title: {
-      en: "Customer Behavior",
-      fr: "Comportement client",
-    },
+    title: { en: "Customer Behavior", fr: "Comportement client" },
     description: {
       en: "Analyze website traffic, customer journeys, acquisition channels, and conversions.",
       fr: "Analysez le trafic du site, les parcours clients, les canaux d’acquisition et les conversions.",
     },
+    icon: Activity,
   },
   {
     id: "products",
-    title: {
-      en: "Products & Forecast",
-      fr: "Produits & prévisions",
-    },
+    title: { en: "Products & Forecast", fr: "Produits & prévisions" },
     description: {
-      en: "Monitor product performance, forecasts, and restocking priorities.",
+      en: "Monitor approved product performance and the explicit status of forecasting experiments.",
       fr: "Suivez les performances des produits, les prévisions et les priorités de réapprovisionnement.",
     },
+    icon: Boxes,
   },
   {
     id: "alerts",
-    title: {
-      en: "Actions & Alerts",
-      fr: "Actions & alertes",
-    },
+    title: { en: "Actions & Alerts", fr: "Actions & alertes" },
     description: {
       en: "Review anomalies, risks, recommended actions, and decision priorities.",
       fr: "Consultez les anomalies, les risques, les actions recommandées et les priorités de décision.",
     },
+    icon: BellRing,
   },
 ];
 
 const pageComponents = {
+  upload: DataUpload,
   overview: Overview,
   sales: SalesIntelligence,
   clients: ClientIntelligence,
@@ -106,29 +118,87 @@ function App() {
   const [activeTabId, setActiveTabId] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState("en");
+  const [latestPipelineRun, setLatestPipelineRun] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    try {
+      const storedTheme = window.localStorage.getItem("energical-theme");
+      if (storedTheme === "light" || storedTheme === "dark") {
+        return storedTheme;
+      }
+    } catch {
+      // Fall through to the device preference.
+    }
 
-  const activeTab =
-    tabs.find((tab) => tab.id === activeTabId) || tabs[0];
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [insight, setInsight] = useState(null);
+  const [assistantContext, setAssistantContext] = useState(null);
 
-  const ActivePage =
-    pageComponents[activeTabId] || Overview;
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) || tabs[0];
+  const ActivePage = pageComponents[activeTabId] || Overview;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("energical-theme", theme);
+    } catch {
+      // Device-local preference persistence is best effort.
+    }
+
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   const toggleLanguage = () => {
-    setLanguage((currentLanguage) =>
-      currentLanguage === "en" ? "fr" : "en"
-    );
+    setLanguage((currentLanguage) => (currentLanguage === "en" ? "fr" : "en"));
   };
 
+  const handleNavigate = useCallback((tabId, context = null) => {
+    setActiveTabId(tabId);
+    setSidebarOpen(false);
+
+    if (context) {
+      setInsight(context);
+    }
+  }, []);
+
+  const handleOpenSearch = useCallback((query = "") => {
+    setSearchQuery(query);
+    setSearchOpen(true);
+  }, []);
+
+  const handleCloseSearch = useCallback(() => {
+    setSearchOpen(false);
+  }, []);
+
+  const handleAskAI = useCallback((context) => {
+    const approvedMetrics = Object.fromEntries(
+      Object.entries(context?.approved_metrics || {})
+        .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+        .slice(0, 20),
+    );
+    setAssistantContext({
+      page: context?.page || activeTabId,
+      selection_type: context?.selection_type || "dashboard_selection",
+      selection: context?.selection || context?.selection_label || "Current selection",
+      approved_metrics: approvedMetrics,
+    });
+    setInsight(null);
+  }, [activeTabId]);
+
+  const handleInsight = useCallback((nextInsight) => {
+    setInsight(nextInsight);
+    setAssistantContext(null);
+  }, []);
+
   return (
-    <div className="app-layout">
+    <div className="app-layout" data-language={language}>
       <Sidebar
         tabs={tabs}
         activeTabId={activeTabId}
         setActiveTabId={setActiveTabId}
         isOpen={sidebarOpen}
-        onToggle={() => {
-          setSidebarOpen((previousValue) => !previousValue);
-        }}
+        onToggle={() => setSidebarOpen((previousValue) => !previousValue)}
         language={language}
       />
 
@@ -137,12 +207,69 @@ function App() {
           activeTab={activeTab}
           language={language}
           onToggleLanguage={toggleLanguage}
+          latestPipelineRun={latestPipelineRun}
+          theme={theme}
+          onThemeChange={setTheme}
+          onOpenSearch={handleOpenSearch}
         />
 
-        <ActivePage language={language} />
+        <div className="page-transition" key={activeTabId}>
+          <ActivePage
+            language={language}
+            onPipelineComplete={setLatestPipelineRun}
+            onNavigate={handleNavigate}
+            onInsight={handleInsight}
+            onAskAI={handleAskAI}
+          />
+        </div>
 
         <Footer />
       </div>
+
+      <ContextualInsightDrawer
+        insight={insight}
+        language={language}
+        onClose={() => setInsight(null)}
+        onAskAI={handleAskAI}
+        onNavigate={handleNavigate}
+      />
+
+      <ContextualAssistantDrawer
+        context={assistantContext}
+        language={language}
+        onClose={() => setAssistantContext(null)}
+      />
+
+      <button
+        type="button"
+        className="assistant-launcher"
+        aria-label={language === "fr" ? "Ouvrir l’assistant IA" : "Open AI assistant"}
+        onClick={() => handleAskAI(insight?.aiContext || insight || {
+          page: activeTabId,
+          selection_type: activeTabId === "upload" && latestPipelineRun?.result ? "pipeline_summary" : "current_page",
+          selection: activeTabId === "upload" && latestPipelineRun?.result ? "Latest processing result" : activeTab.title[language],
+          approved_metrics: activeTabId === "upload" && latestPipelineRun?.result ? {
+            total_files: latestPipelineRun.result.total_files,
+            total_rows_raw: latestPipelineRun.result.total_rows_raw,
+            total_rows_cleaned: latestPipelineRun.result.total_rows_cleaned,
+            total_missing_values: latestPipelineRun.result.total_missing_values,
+            duplicate_rows_removed: latestPipelineRun.result.total_duplicate_rows_removed,
+          } : {},
+        })}
+      >
+        <span className="assistant-launcher-pulse" aria-hidden="true" />
+        <span aria-hidden="true">✦</span>
+      </button>
+
+      <CommandPalette
+        key={`${searchOpen ? "open" : "closed"}-${searchQuery}`}
+        isOpen={searchOpen}
+        initialQuery={searchQuery}
+        tabs={tabs}
+        language={language}
+        onClose={handleCloseSearch}
+        onNavigate={handleNavigate}
+      />
     </div>
   );
 }

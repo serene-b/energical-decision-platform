@@ -70,7 +70,7 @@ function Sidebar({
 
       <nav
         className="sidebar-navigation"
-        aria-label="Main navigation"
+        aria-label={language === "fr" ? "Navigation principale" : "Main navigation"}
       >
         <ul className="sidebar-links">
           {tabs.map((tab) => (
@@ -84,9 +84,17 @@ function Sidebar({
                 type="button"
                 onClick={() => {
                   setActiveTabId(tab.id);
+                  if (isOpen && window.innerWidth <= 820) {
+                    onToggle();
+                  }
                 }}
+                aria-current={activeTabId === tab.id ? "page" : undefined}
+                title={tab.title[language]}
               >
-                {tab.title[language]}
+                <span className="sidebar-link-icon" aria-hidden="true">
+                  {tab.icon ? <tab.icon size={17} strokeWidth={1.8} /> : null}
+                </span>
+                <span className="sidebar-link-copy">{tab.title[language]}</span>
               </button>
             </li>
           ))}

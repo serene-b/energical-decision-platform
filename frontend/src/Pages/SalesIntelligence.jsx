@@ -1,695 +1,130 @@
-import ScrollReveal from "../components/common/ScrollReveal.jsx";
+import { ArrowUpRight } from "lucide-react";
 
-const translations = {
+import { useAnalyticsResource } from "../api/useApiResource.js";
+import AnalyticsState from "../components/Common/AnalyticsState.jsx";
+import ScrollReveal from "../components/Common/ScrollReveal.jsx";
+import { formatNumber } from "../utils/formatters.js";
+
+const copy = {
   en: {
     eyebrow: "Sales performance",
     title: "Sales Intelligence",
-    description:
-      "Track revenue, transaction volume, customer type, channels, growth, and unusual sales movements.",
-    export: "Export sales report",
-
-    totalRevenue: "Total revenue",
-    totalRevenueNote: "Confirmed sales revenue",
-    totalSales: "Total sales",
-    totalSalesNote: "Completed transactions",
-    averageBasket: "Average basket value",
-    averageBasketNote: "Revenue per completed order",
-    growthRate: "Sales growth rate",
-    growthRateNote: "Compared with previous period",
-
-    trendEyebrow: "Monthly performance",
-    trendTitle: "Sales revenue trend",
-    trendDescription: "Revenue generated during the last six months.",
-    currentPeriod: "Current period",
-    previousPeriod: "Previous period",
-
-    clientMixEyebrow: "Customer mix",
-    clientMixTitle: "B2B versus B2C sales",
-    b2b: "B2B clients",
-    b2c: "B2C clients",
+    description: "Track revenue, transaction volume, customer type, channels, growth, and unusual sales movements.",
     revenue: "Revenue",
-    orders: "Orders",
-    averageOrder: "Average order",
-
-    channelsEyebrow: "Channel analysis",
-    channelsTitle: "Sales by channel",
-    channel: "Channel",
+    orders: "Realized orders",
+    basket: "Average basket",
+    growth: "Sales growth rate",
+    trend: "Sales revenue trend",
+    customerType: "Customer mix",
+    payment: "Payment method",
+    delivery: "Delivery method",
+    label: "Segment",
     share: "Share",
-    transactions: "Transactions",
-    change: "Change",
-
-    anomaliesEyebrow: "Automatic detection",
-    anomaliesTitle: "Sales observations",
-    review: "Review",
-    high: "High",
-    medium: "Medium",
-    information: "Information",
-
-    websiteGrowth: "Website sales accelerated",
-    websiteGrowthDescription:
-      "Website revenue increased by 15.8% compared with the previous period.",
-
-    b2bGrowth: "B2B revenue concentration",
-    b2bGrowthDescription:
-      "B2B clients generated 62.5% of total revenue from only 28.8% of transactions.",
-
-    directDecline: "Direct channel decline",
-    directDeclineDescription:
-      "Direct and other sales decreased by 2.7% and should be reviewed.",
-
-    mockData: "Demonstration data",
+    scope: "Scope",
+    notes: "Methodology notes",
+    noRows: "No approved rows are available for this breakdown.",
+    openClients: "Open client intelligence",
+    open: "Open",
   },
-
   fr: {
     eyebrow: "Performance commerciale",
     title: "Intelligence des ventes",
-    description:
-      "Suivez le chiffre d’affaires, les transactions, les types de clients, les canaux, la croissance et les variations inhabituelles.",
-    export: "Exporter le rapport",
-
-    totalRevenue: "Chiffre d’affaires",
-    totalRevenueNote: "Revenus des ventes confirmées",
-    totalSales: "Nombre de ventes",
-    totalSalesNote: "Transactions finalisées",
-    averageBasket: "Panier moyen",
-    averageBasketNote: "Revenu moyen par commande",
-    growthRate: "Taux de croissance",
-    growthRateNote: "Comparaison avec la période précédente",
-
-    trendEyebrow: "Performance mensuelle",
-    trendTitle: "Évolution du chiffre d’affaires",
-    trendDescription: "Revenus générés durant les six derniers mois.",
-    currentPeriod: "Période actuelle",
-    previousPeriod: "Période précédente",
-
-    clientMixEyebrow: "Répartition des clients",
-    clientMixTitle: "Ventes B2B et B2C",
-    b2b: "Clients B2B",
-    b2c: "Clients B2C",
-    revenue: "Revenu",
-    orders: "Commandes",
-    averageOrder: "Commande moyenne",
-
-    channelsEyebrow: "Analyse des canaux",
-    channelsTitle: "Ventes par canal",
-    channel: "Canal",
+    description: "Suivez le chiffre d’affaires, les transactions, les types de clients, les canaux, la croissance et les variations inhabituelles.",
+    revenue: "Chiffre d’affaires",
+    orders: "Commandes confirmées",
+    basket: "Panier moyen",
+    growth: "Taux de croissance",
+    trend: "Évolution du chiffre d’affaires",
+    customerType: "Répartition des clients",
+    payment: "Mode de paiement",
+    delivery: "Mode de livraison",
+    label: "Segment",
     share: "Part",
-    transactions: "Transactions",
-    change: "Évolution",
-
-    anomaliesEyebrow: "Détection automatique",
-    anomaliesTitle: "Observations commerciales",
-    review: "Examiner",
-    high: "Élevée",
-    medium: "Moyenne",
-    information: "Information",
-
-    websiteGrowth: "Accélération des ventes web",
-    websiteGrowthDescription:
-      "Le chiffre d’affaires du site web a augmenté de 15,8 % par rapport à la période précédente.",
-
-    b2bGrowth: "Concentration du revenu B2B",
-    b2bGrowthDescription:
-      "Les clients B2B ont généré 62,5 % du revenu avec seulement 28,8 % des transactions.",
-
-    directDecline: "Baisse du canal direct",
-    directDeclineDescription:
-      "Les ventes directes et autres ont diminué de 2,7 % et nécessitent une vérification.",
-
-    mockData: "Données de démonstration",
+    scope: "Périmètre",
+    notes: "Notes méthodologiques",
+    noRows: "Aucune ligne approuvée n’est disponible pour cette répartition.",
+    openClients: "Ouvrir l’intelligence clients",
+    open: "Ouvrir",
   },
 };
 
-const monthlySales = [
-  { month: { en: "Jan", fr: "Jan" }, revenue: 19.2 },
-  { month: { en: "Feb", fr: "Fév" }, revenue: 20.8 },
-  { month: { en: "Mar", fr: "Mar" }, revenue: 21.6 },
-  { month: { en: "Apr", fr: "Avr" }, revenue: 24.1 },
-  { month: { en: "May", fr: "Mai" }, revenue: 26.0 },
-  { month: { en: "Jun", fr: "Juin" }, revenue: 30.3 },
-];
+function money(value, language) {
+  const number = Number(value || 0);
+  return Math.abs(number) >= 1_000_000 ? `${(number / 1_000_000).toFixed(1)}M DZD` : `${formatNumber(Math.round(number), language)} DZD`;
+}
 
-const channelData = [
-  {
-    name: { en: "Website", fr: "Site web" },
-    revenue: "61.8M DA",
-    transactions: "7,240",
-    share: 43.5,
-    change: "+15.8%",
-    positive: true,
-  },
-  {
-    name: { en: "Sales team", fr: "Équipe commerciale" },
-    revenue: "54.6M DA",
-    transactions: "3,911",
-    share: 38.5,
-    change: "+8.1%",
-    positive: true,
-  },
-  {
-    name: { en: "Marketplace", fr: "Marketplace" },
-    revenue: "18.2M DA",
-    transactions: "4,096",
-    share: 12.8,
-    change: "+11.6%",
-    positive: true,
-  },
-  {
-    name: { en: "Direct and other", fr: "Direct et autres" },
-    revenue: "7.4M DA",
-    transactions: "1,140",
-    share: 5.2,
-    change: "-2.7%",
-    positive: false,
-  },
-];
+function periodLabel(period, partialMonths = []) {
+  return partialMonths.includes(period) ? `${period} MTD` : period;
+}
 
-function SalesIntelligence({ language = "en" }) {
-  const text = translations[language];
+function MiniTrend({ points, language, partialMonths = [], onSelect }) {
+  if (!points?.length) return <p className="calm-empty">No trend data.</p>;
+  const width = 700;
+  const height = 230;
+  const max = Math.max(...points.map((item) => Number(item.revenue || 0)), 1);
+  const line = points.map((item, index) => {
+    const x = 18 + index / Math.max(points.length - 1, 1) * (width - 36);
+    const y = 188 - Number(item.revenue || 0) / max * 150;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <div className="calm-chart-wrap">
+      <svg className="calm-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={language === "fr" ? "Évolution du revenu" : "Revenue trend"}>
+        {[0, 1, 2].map((index) => <line key={index} className="calm-chart-grid" x1="18" x2="682" y1={38 + index * 75} y2={38 + index * 75} />)}
+        <polyline className="calm-chart-line" points={line} />
+        {points.map((item, index) => {
+          const [x, y] = line.split(" ")[index].split(",");
+          return <g key={item.period}><circle className="calm-chart-point" cx={x} cy={y} r="5" tabIndex="0" role="button" aria-label={`${periodLabel(item.period, partialMonths)}: ${money(item.revenue, language)}`} onClick={() => onSelect?.(item)} /><text className="calm-chart-label" x={x} y="214" textAnchor="middle">{item.period.slice(5)}{partialMonths.includes(item.period) ? " MTD" : ""}</text></g>;
+        })}
+      </svg>
+    </div>
+  );
+}
 
-  const chartWidth = 760;
-  const chartHeight = 220;
-  const horizontalPadding = 30;
-  const verticalPadding = 28;
+function Breakdown({ title, rows, data, language, onSelect }) {
+  const total = rows.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
+  return (
+    <section className="calm-section">
+      <div className="calm-section-heading"><div><p className="section-eyebrow">{title}</p><h3>{title}</h3></div></div>
+      {rows.length ? <div className="breakdown-list">{rows.slice(0, 8).map((row) => <button type="button" className="breakdown-row" key={row.label} onClick={() => onSelect?.(row)}><span className="breakdown-label"><strong>{row.label}</strong><small>{formatNumber(row.orders, language)} orders</small></span><span className="breakdown-bar"><i style={{ width: `${total ? Math.max(3, row.revenue / total * 100) : 3}%` }} /></span><strong>{money(row.revenue, language)}</strong></button>)}</div> : <p className="calm-empty">{data.noRows}</p>}
+    </section>
+  );
+}
 
-  const values = monthlySales.map((item) => item.revenue);
-  const minimumValue = Math.min(...values) - 2;
-  const maximumValue = Math.max(...values) + 2;
-  const valueRange = maximumValue - minimumValue;
+function SalesIntelligence({ language = "en", onNavigate, onInsight }) {
+  const text = copy[language] || copy.en;
+  const resource = useAnalyticsResource("sales");
+  const data = resource.data;
 
-  const chartPoints = monthlySales.map((item, index) => {
-    const x =
-      horizontalPadding +
-      (index / (monthlySales.length - 1)) *
-        (chartWidth - horizontalPadding * 2);
-
-    const y =
-      chartHeight -
-      verticalPadding -
-      ((item.revenue - minimumValue) / valueRange) *
-        (chartHeight - verticalPadding * 2);
-
-    return {
-      ...item,
-      x,
-      y,
-    };
+  const select = (label, row) => onInsight?.({
+    page: "sales",
+    title: `${label} · ${row.label || ""}`,
+    description: text.description,
+    metric_label: text.revenue,
+    selection: row.label,
+    selection_label: row.label,
+    approved_metrics: { revenue: row.revenue, orders: row.orders, average_basket: row.average_basket },
+    suggestions: [{ id: "sales-clients", label: { en: text.openClients, fr: text.openClients }, tabId: "clients" }],
   });
 
-  const polylinePoints = chartPoints
-    .map((point) => `${point.x},${point.y}`)
-    .join(" ");
-
-  const areaPoints = [
-    `${horizontalPadding},${chartHeight - verticalPadding}`,
-    polylinePoints,
-    `${chartWidth - horizontalPadding},${chartHeight - verticalPadding}`,
-  ].join(" ");
-
-  const handleExport = () => {
-    const rows = [
-      [text.title],
-      [],
-      [text.totalRevenue, "142M DA"],
-      [text.totalSales, "16,387"],
-      [text.averageBasket, "8,665 DA"],
-      [text.growthRate, "+12.4%"],
-      [],
-      [text.trendTitle],
-      [text.channel, text.revenue],
-      ...monthlySales.map((item) => [
-        item.month[language],
-        `${item.revenue}M DA`,
-      ]),
-      [],
-      [text.channelsTitle],
-      [
-        text.channel,
-        text.revenue,
-        text.transactions,
-        text.share,
-        text.change,
-      ],
-      ...channelData.map((channel) => [
-        channel.name[language],
-        channel.revenue,
-        channel.transactions,
-        `${channel.share}%`,
-        channel.change,
-      ]),
-    ];
-
-    const escapeCell = (value) => {
-      const stringValue = String(value ?? "");
-
-      if (
-        stringValue.includes(";") ||
-        stringValue.includes('"') ||
-        stringValue.includes("\n")
-      ) {
-        return `"${stringValue.replaceAll('"', '""')}"`;
-      }
-
-      return stringValue;
-    };
-
-    const csvContent = rows
-      .map((row) => row.map(escapeCell).join(";"))
-      .join("\n");
-
-    const blob = new Blob([`\uFEFF${csvContent}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const downloadUrl = URL.createObjectURL(blob);
-    const downloadLink = document.createElement("a");
-
-    downloadLink.href = downloadUrl;
-    downloadLink.download = "energical-sales-report.csv";
-
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-
-    URL.revokeObjectURL(downloadUrl);
-  };
-
   return (
-    <section className="page-shell sales-page">
-      <ScrollReveal>
-        <div className="section-heading sales-page-heading">
-          <div>
-            <div className="sales-heading-meta">
-              <p className="section-eyebrow">{text.eyebrow}</p>
-              <span className="sales-demo-label">{text.mockData}</span>
-            </div>
-
-            <h2>{text.title}</h2>
-
-            <p className="section-description">{text.description}</p>
+    <section className="page-shell calm-page">
+      <ScrollReveal><header className="calm-page-header"><div><p className="section-eyebrow">{text.eyebrow}</p><h2>{text.title}</h2><p>{text.description}</p></div><span className="data-source-badge"><i aria-hidden="true" />{data?.scope?.rows_used?.realized_orders || 0} orders in scope</span></header></ScrollReveal>
+      <AnalyticsState {...resource} language={language}>
+        {data && <>
+          <ScrollReveal delay={60}><section className="metric-strip metric-strip--three"><div className="metric-strip-item metric-strip-item--primary"><span>{text.revenue}</span><strong>{money(data.total_revenue, language)}</strong><small>{data.period_start || "—"} → {periodLabel(data.period_end, data.partial_months)}</small></div><div className="metric-strip-item"><span>{text.orders}</span><strong>{formatNumber(data.total_orders, language)}</strong><small>{text.revenue}</small></div><div className="metric-strip-item"><span>{text.basket}</span><strong>{money(data.average_basket, language)}</strong><small>{text.orders}</small></div><div className="metric-strip-item"><span>{text.growth}</span><strong className={data.growth_pct >= 0 ? "value-positive" : "value-neutral"}>{data.growth_pct == null ? "—" : `${data.growth_pct >= 0 ? "+" : ""}${data.growth_pct}%`}</strong><small>{periodLabel(data.period_end, data.partial_months)}</small></div></section></ScrollReveal>
+          <div className="calm-content-grid">
+            <ScrollReveal className="calm-section calm-section--wide" delay={100}><section><div className="calm-section-heading"><div><p className="section-eyebrow">{text.trend}</p><h3>{text.trend}</h3></div><span>{data.trend?.length || 0} months</span></div><MiniTrend points={data.trend} language={language} partialMonths={data.partial_months} onSelect={(row) => select(text.trend, row)} /></section></ScrollReveal>
+            <ScrollReveal className="calm-section" delay={140}><section><div className="calm-section-heading"><div><p className="section-eyebrow">{text.scope}</p><h3>{text.scope}</h3></div></div><dl className="scope-list"><div><dt>Run</dt><dd>{data.scope?.run_id?.slice(0, 8) || "—"}</dd></div><div><dt>Datasets</dt><dd>{data.scope?.datasets?.join(", ") || "—"}</dd></div><div><dt>Orders used</dt><dd>{formatNumber(data.scope?.rows_used?.orders || 0, language)}</dd></div></dl><button type="button" className="text-link" onClick={() => onNavigate?.("clients")}>{text.openClients}<ArrowUpRight size={14} /></button></section></ScrollReveal>
           </div>
-
-          <button
-            type="button"
-            className="primary-button"
-            onClick={handleExport}
-          >
-            {text.export}
-          </button>
-        </div>
-      </ScrollReveal>
-
-      <div className="sales-kpi-grid">
-        <ScrollReveal className="sales-kpi-reveal" delay={40}>
-          <article className="sales-kpi-card sales-kpi-card--featured">
-            <div className="sales-kpi-topline">
-              <span>{text.totalRevenue}</span>
-              <span className="sales-kpi-indicator">+12.4%</span>
-            </div>
-
-            <strong className="sales-kpi-value">142M DA</strong>
-            <p>{text.totalRevenueNote}</p>
-
-            <div className="sales-kpi-progress">
-              <span style={{ width: "78%" }} />
-            </div>
-          </article>
-        </ScrollReveal>
-
-        <ScrollReveal className="sales-kpi-reveal" delay={80}>
-          <article className="sales-kpi-card">
-            <div className="sales-kpi-topline">
-              <span>{text.totalSales}</span>
-              <span className="sales-kpi-index">01</span>
-            </div>
-
-            <strong className="sales-kpi-value">16,387</strong>
-            <p>{text.totalSalesNote}</p>
-
-            <div className="sales-kpi-footer">
-              <span>B2B</span>
-              <strong>4,720</strong>
-              <span>B2C</span>
-              <strong>11,667</strong>
-            </div>
-          </article>
-        </ScrollReveal>
-
-        <ScrollReveal className="sales-kpi-reveal" delay={120}>
-          <article className="sales-kpi-card">
-            <div className="sales-kpi-topline">
-              <span>{text.averageBasket}</span>
-              <span className="sales-kpi-index">02</span>
-            </div>
-
-            <strong className="sales-kpi-value">8,665 DA</strong>
-            <p>{text.averageBasketNote}</p>
-
-            <div className="sales-kpi-footer">
-              <span>B2B</span>
-              <strong>18,792 DA</strong>
-              <span>B2C</span>
-              <strong>4,568 DA</strong>
-            </div>
-          </article>
-        </ScrollReveal>
-
-        <ScrollReveal className="sales-kpi-reveal" delay={160}>
-          <article className="sales-kpi-card">
-            <div className="sales-kpi-topline">
-              <span>{text.growthRate}</span>
-              <span className="sales-kpi-indicator">Positive</span>
-            </div>
-
-            <strong className="sales-kpi-value sales-positive-value">
-              +12.4%
-            </strong>
-
-            <p>{text.growthRateNote}</p>
-
-            <div className="sales-growth-comparison">
-              <div>
-                <span>{text.currentPeriod}</span>
-                <strong>142M DA</strong>
-              </div>
-
-              <div>
-                <span>{text.previousPeriod}</span>
-                <strong>126.3M DA</strong>
-              </div>
-            </div>
-          </article>
-        </ScrollReveal>
-      </div>
-
-      <div className="sales-analysis-grid">
-        <ScrollReveal className="sales-panel-reveal" delay={80}>
-          <article className="sales-panel sales-trend-panel">
-            <div className="sales-panel-heading">
-              <div>
-                <p className="panel-eyebrow">{text.trendEyebrow}</p>
-                <h3>{text.trendTitle}</h3>
-                <p>{text.trendDescription}</p>
-              </div>
-
-              <div className="sales-period-summary">
-                <span>{text.currentPeriod}</span>
-                <strong>142M DA</strong>
-              </div>
-            </div>
-
-            <div className="sales-chart-container">
-              <svg
-                className="sales-trend-chart"
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                role="img"
-                aria-label={text.trendTitle}
-              >
-                <defs>
-                  <linearGradient
-                    id="salesAreaGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="#e8622c"
-                      stopOpacity="0.22"
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="#e8622c"
-                      stopOpacity="0"
-                    />
-                  </linearGradient>
-                </defs>
-
-                {[0, 1, 2, 3].map((line) => {
-                  const y =
-                    verticalPadding +
-                    (line / 3) *
-                      (chartHeight - verticalPadding * 2);
-
-                  return (
-                    <line
-                      key={line}
-                      className="sales-chart-grid-line"
-                      x1={horizontalPadding}
-                      x2={chartWidth - horizontalPadding}
-                      y1={y}
-                      y2={y}
-                    />
-                  );
-                })}
-
-                <polygon
-                  className="sales-chart-area"
-                  points={areaPoints}
-                  fill="url(#salesAreaGradient)"
-                />
-
-                <polyline
-                  className="sales-chart-line"
-                  points={polylinePoints}
-                />
-
-                {chartPoints.map((point) => (
-                  <g key={point.month.en}>
-                    <circle
-                      className="sales-chart-point"
-                      cx={point.x}
-                      cy={point.y}
-                      r="5"
-                    />
-
-                    <text
-                      className="sales-chart-value"
-                      x={point.x}
-                      y={point.y - 14}
-                      textAnchor="middle"
-                    >
-                      {point.revenue}M
-                    </text>
-                  </g>
-                ))}
-              </svg>
-
-              <div className="sales-chart-months">
-                {monthlySales.map((item) => (
-                  <span key={item.month.en}>
-                    {item.month[language]}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </article>
-        </ScrollReveal>
-
-        <ScrollReveal className="sales-panel-reveal" delay={120}>
-          <article className="sales-panel sales-client-mix-panel">
-            <div className="sales-panel-heading">
-              <div>
-                <p className="panel-eyebrow">
-                  {text.clientMixEyebrow}
-                </p>
-                <h3>{text.clientMixTitle}</h3>
-              </div>
-            </div>
-
-            <div className="client-mix-total">
-              <span>{text.revenue}</span>
-              <strong>142M DA</strong>
-            </div>
-
-            <div
-              className="client-mix-bar"
-              aria-label="B2B 62.5%, B2C 37.5%"
-            >
-              <span className="client-mix-bar-b2b" />
-              <span className="client-mix-bar-b2c" />
-            </div>
-
-            <div className="client-mix-legend">
-              <article>
-                <div className="client-mix-label">
-                  <span className="client-mix-dot client-mix-dot--b2b" />
-                  <strong>{text.b2b}</strong>
-                </div>
-
-                <strong className="client-mix-percentage">62.5%</strong>
-
-                <dl>
-                  <div>
-                    <dt>{text.revenue}</dt>
-                    <dd>88.7M DA</dd>
-                  </div>
-
-                  <div>
-                    <dt>{text.orders}</dt>
-                    <dd>4,720</dd>
-                  </div>
-
-                  <div>
-                    <dt>{text.averageOrder}</dt>
-                    <dd>18,792 DA</dd>
-                  </div>
-                </dl>
-              </article>
-
-              <article>
-                <div className="client-mix-label">
-                  <span className="client-mix-dot client-mix-dot--b2c" />
-                  <strong>{text.b2c}</strong>
-                </div>
-
-                <strong className="client-mix-percentage">37.5%</strong>
-
-                <dl>
-                  <div>
-                    <dt>{text.revenue}</dt>
-                    <dd>53.3M DA</dd>
-                  </div>
-
-                  <div>
-                    <dt>{text.orders}</dt>
-                    <dd>11,667</dd>
-                  </div>
-
-                  <div>
-                    <dt>{text.averageOrder}</dt>
-                    <dd>4,568 DA</dd>
-                  </div>
-                </dl>
-              </article>
-            </div>
-          </article>
-        </ScrollReveal>
-      </div>
-
-      <div className="sales-lower-grid">
-        <ScrollReveal className="sales-panel-reveal" delay={100}>
-          <article className="sales-panel sales-channel-panel">
-            <div className="sales-panel-heading">
-              <div>
-                <p className="panel-eyebrow">
-                  {text.channelsEyebrow}
-                </p>
-                <h3>{text.channelsTitle}</h3>
-              </div>
-            </div>
-
-            <div className="sales-table-wrapper">
-              <table className="sales-channel-table">
-                <thead>
-                  <tr>
-                    <th>{text.channel}</th>
-                    <th>{text.revenue}</th>
-                    <th>{text.transactions}</th>
-                    <th>{text.share}</th>
-                    <th>{text.change}</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {channelData.map((channel) => (
-                    <tr key={channel.name.en}>
-                      <td>
-                        <div className="sales-channel-name">
-                          <span>{channel.name[language]}</span>
-
-                          <div className="sales-channel-progress">
-                            <span
-                              style={{
-                                width: `${channel.share}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>{channel.revenue}</td>
-                      <td>{channel.transactions}</td>
-                      <td>{channel.share}%</td>
-
-                      <td>
-                        <span
-                          className={
-                            channel.positive
-                              ? "sales-change sales-change--positive"
-                              : "sales-change sales-change--negative"
-                          }
-                        >
-                          {channel.change}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </article>
-        </ScrollReveal>
-
-        <ScrollReveal className="sales-panel-reveal" delay={140}>
-          <article className="sales-panel sales-observations-panel">
-            <div className="sales-panel-heading">
-              <div>
-                <p className="panel-eyebrow">
-                  {text.anomaliesEyebrow}
-                </p>
-                <h3>{text.anomaliesTitle}</h3>
-              </div>
-            </div>
-
-            <div className="sales-observation-list">
-              <article className="sales-observation">
-                <span className="sales-observation-marker sales-observation-marker--positive" />
-
-                <div>
-                  <div className="sales-observation-title">
-                    <h4>{text.websiteGrowth}</h4>
-                    <span>{text.information}</span>
-                  </div>
-
-                  <p>{text.websiteGrowthDescription}</p>
-                </div>
-              </article>
-
-              <article className="sales-observation">
-                <span className="sales-observation-marker sales-observation-marker--medium" />
-
-                <div>
-                  <div className="sales-observation-title">
-                    <h4>{text.b2bGrowth}</h4>
-                    <span>{text.medium}</span>
-                  </div>
-
-                  <p>{text.b2bGrowthDescription}</p>
-                </div>
-              </article>
-
-              <article className="sales-observation">
-                <span className="sales-observation-marker sales-observation-marker--high" />
-
-                <div>
-                  <div className="sales-observation-title">
-                    <h4>{text.directDecline}</h4>
-                    <span>{text.high}</span>
-                  </div>
-
-                  <p>{text.directDeclineDescription}</p>
-                </div>
-              </article>
-            </div>
-
-            <button type="button" className="sales-review-button">
-              {text.review}
-            </button>
-          </article>
-        </ScrollReveal>
-      </div>
+          <div className="breakdown-grid">
+            <ScrollReveal delay={120}><Breakdown title={text.customerType} rows={data.customer_types || []} data={text} language={language} onSelect={(row) => select(text.customerType, row)} /></ScrollReveal>
+            <ScrollReveal delay={160}><Breakdown title={text.payment} rows={data.payment_methods || []} data={text} language={language} onSelect={(row) => select(text.payment, row)} /></ScrollReveal>
+            <ScrollReveal delay={200}><Breakdown title={text.delivery} rows={data.delivery_methods || []} data={text} language={language} onSelect={(row) => select(text.delivery, row)} /></ScrollReveal>
+          </div>
+          {data.scope?.notes?.length > 0 && <ScrollReveal delay={220}><details className="calm-disclosure"><summary>{text.notes}</summary><ul>{data.scope.notes.map((note) => <li key={note}>{note}</li>)}</ul></details></ScrollReveal>}
+        </>}
+      </AnalyticsState>
     </section>
   );
 }

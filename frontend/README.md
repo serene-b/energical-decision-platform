@@ -1,4 +1,17 @@
-# React + Vite
+# Energical frontend
+
+The frontend is a React/Vite dashboard with a CSV upload center connected to
+the backend API.
+
+## Run locally
+
+```powershell
+npm install
+npm run dev
+```
+
+Set `VITE_API_BASE_URL` when the API is not running at the default
+`http://localhost:8000/api/v1`.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
