@@ -9,11 +9,23 @@ export const ANALYTICS_DOMAINS = Object.freeze({
   products: "/analytics/products",
   forecast: "/analytics/forecast",
   decisions: "/analytics/decisions",
+  overviewAlerts: "/analytics/overview-alerts",
+  overviewProduct: "/analytics/overview-product",
 });
 
 export function getAnalytics(domain, { signal } = {}) {
   const path = ANALYTICS_DOMAINS[domain] || `/analytics/${encodeURIComponent(domain)}`;
   return request(path, { signal });
+}
+
+export function getOverviewRevenueTrend(
+  { granularity = "monthly", startDate = "", endDate = "" } = {},
+  { signal } = {},
+) {
+  const query = new URLSearchParams({ granularity });
+  if (startDate) query.set("start_date", startDate);
+  if (endDate) query.set("end_date", endDate);
+  return request(`/analytics/overview/revenue-trend?${query.toString()}`, { signal });
 }
 
 export function getAssistantContext(payload, { signal } = {}) {

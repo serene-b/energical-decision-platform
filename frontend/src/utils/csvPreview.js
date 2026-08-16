@@ -37,6 +37,52 @@ function firstCsvRecord(value) {
   return value;
 }
 
+export const SUPPORTED_DATASETS = ["transactions", "orders", "customers", "catalogue"];
+
+const DATASET_HEADER_ALIASES = {
+  "order id stage": "order_id_stage",
+  "customer id stage": "customer_id_stage",
+  "code client": "customer_id_stage",
+  "quantity": "quantity",
+  "line total": "line_total",
+  "order total amount": "order_total_amount",
+  "orders count": "orders_count",
+  "total amount": "total_amount",
+  "sku": "sku",
+  "product name": "product_name",
+  "nom": "product_name",
+  "category": "category",
+  "categorie": "category",
+};
+
+function canonicalDetectionHeader(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+  return DATASET_HEADER_ALIASES[normalized] || normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+export function detectDatasetFromHeaders(headers = []) {
+  const keys = new Set(headers.map(canonicalDetectionHeader));
+  if (["order_id_stage", "quantity", "line_total"].every((column) => keys.has(column))) {
+    return { status: "detected", dataset: "transactions" };
+  }
+  if (["order_id_stage", "order_total_amount"].every((column) => keys.has(column))) {
+    return { status: "detected", dataset: "orders" };
+  }
+  if (["customer_id_stage", "orders_count", "total_amount"].every((column) => keys.has(column))) {
+    return { status: "detected", dataset: "customers" };
+  }
+  if (keys.has("sku") && (keys.has("product_name") || keys.has("category"))) {
+    return { status: "detected", dataset: "catalogue" };
+  }
+  return { status: "needs_identification", dataset: "" };
+}
+
 export function parseCsvPreview(source, previewLimit = 5) {
   const value = source.replace(/^\uFEFF/, "");
   const firstRecord = firstCsvRecord(value);

@@ -13,6 +13,7 @@ import {
 import Sidebar from "./components/Layout/Sidebar.jsx";
 import Topbar from "./components/Layout/Topbar.jsx";
 import Footer from "./components/Layout/Footer.jsx";
+import { getPipelineState } from "./api/pipeline.js";
 import CommandPalette from "./components/Common/CommandPalette.jsx";
 import {
   ContextualAssistantDrawer,
@@ -42,8 +43,8 @@ const tabs = [
     id: "overview",
     title: { en: "Overview", fr: "Vue d’ensemble" },
     description: {
-      en: "Monitor approved revenue, order, customer, and data-quality signals from the latest processed run.",
-      fr: "Suivez le chiffre d’affaires, les clients à risque, les ventes et les prévisions à trois mois.",
+      en: "Explore realized revenue, customers, Wilaya concentration, products, and verified business alerts.",
+      fr: "Explorez le revenu réalisé, les clients, la concentration par wilaya, les produits et les alertes métier vérifiées.",
     },
     icon: LayoutDashboard,
   },
@@ -119,6 +120,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState("en");
   const [latestPipelineRun, setLatestPipelineRun] = useState(null);
+  const [databaseState, setDatabaseState] = useState(null);
+  const [databaseStateError, setDatabaseStateError] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const storedTheme = window.localStorage.getItem("energical-theme");
@@ -138,6 +141,32 @@ function App() {
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) || tabs[0];
   const ActivePage = pageComponents[activeTabId] || Overview;
+
+  const refreshDatabaseState = useCallback(() => {
+    return getPipelineState()
+      .then((state) => {
+        setDatabaseState(state);
+        setDatabaseStateError(false);
+        return state;
+      })
+      .catch(() => {
+        setDatabaseStateError(true);
+        return null;
+      });
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getPipelineState({ signal: controller.signal })
+      .then((state) => {
+        setDatabaseState(state);
+        setDatabaseStateError(false);
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") setDatabaseStateError(true);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     try {
@@ -161,6 +190,11 @@ function App() {
       setInsight(context);
     }
   }, []);
+
+  const handlePipelineComplete = useCallback((run) => {
+    setLatestPipelineRun(run);
+    void refreshDatabaseState();
+  }, [refreshDatabaseState]);
 
   const handleOpenSearch = useCallback((query = "") => {
     setSearchQuery(query);
@@ -202,12 +236,14 @@ function App() {
         language={language}
       />
 
-      <div className="main-content">
+      <div className={`main-content${activeTabId === "overview" ? " main-content--overview" : ""}`}>
         <Topbar
           activeTab={activeTab}
+          adaptive={activeTabId === "overview"}
           language={language}
           onToggleLanguage={toggleLanguage}
-          latestPipelineRun={latestPipelineRun}
+          databaseState={databaseState}
+          databaseStateError={databaseStateError}
           theme={theme}
           onThemeChange={setTheme}
           onOpenSearch={handleOpenSearch}
@@ -216,7 +252,7 @@ function App() {
         <div className="page-transition" key={activeTabId}>
           <ActivePage
             language={language}
-            onPipelineComplete={setLatestPipelineRun}
+            onPipelineComplete={handlePipelineComplete}
             onNavigate={handleNavigate}
             onInsight={handleInsight}
             onAskAI={handleAskAI}

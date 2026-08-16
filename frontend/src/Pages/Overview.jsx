@@ -1,129 +1,227 @@
-import { ArrowUpRight, CheckCircle2, CircleAlert } from "lucide-react";
+import { ArrowUpRight, BellRing, Package, ShoppingCart, TrendingUp, Users } from "lucide-react";
+import { useState } from "react";
 
-import { useAnalyticsResource } from "../api/useApiResource.js";
-import AnalyticsState from "../components/Common/AnalyticsState.jsx";
+import { useAnalyticsResource, useRevenueTrendResource } from "../api/useApiResource.js";
+import InteractiveRevenueTrend from "../components/Overview/InteractiveRevenueTrend.jsx";
+import RevenueBubbleMap from "../components/Overview/RevenueBubbleMap.jsx";
 import ScrollReveal from "../components/Common/ScrollReveal.jsx";
 import { formatNumber } from "../utils/formatters.js";
+
+const granularities = ["daily", "weekly", "monthly"];
 
 const copy = {
   en: {
     eyebrow: "Executive snapshot",
-    title: "Business performance at a glance",
-    description: "Approved revenue, order, customer, and quality signals from the latest processed run.",
-    source: "Latest processed run",
-    revenue: "Revenue",
+    title: "Overview",
+    description: "Realized performance, geographic concentration, and verified operational signals.",
+    source: "Live business analytics",
+    revenue: "Realized revenue",
     orders: "Realized orders",
     basket: "Average basket",
     clients: "Clients",
+    previousMonth: "vs previous month",
+    distinctOrders: "Distinct realized orders",
+    basketDefinition: "Realized revenue / orders",
+    viewClients: "View Client Intelligence",
     trend: "Revenue Trend",
-    trendNote: "Realized sales by available month",
-    quality: "Data quality",
-    qualityReady: "Quality checks completed",
-    qualityWarnings: "Quality review required",
+    trendNote: "Explore PostgreSQL-backed realized order revenue by date.",
+    viewSales: "View Sales Intelligence",
+    granularity: "Granularity",
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    startDate: "Start date",
+    endDate: "End date",
+    apply: "Apply",
+    invalidRange: "Start date must be on or before end date.",
+    outsideRange: "Choose dates within the available database range.",
+    dataThrough: "Data through",
+    selectedRange: "Selected range",
+    partial: "Current partial period",
+    map: "Revenue by Wilaya",
+    mapNote: "Proportional bubbles show realized revenue for verified Algerian wilayas only.",
+    viewWilayas: "View Wilaya Intelligence",
+    product: "Top Product",
+    productNote: "Realized product revenue from transaction line totals.",
+    productRevenue: "Revenue",
+    units: "Units",
+    viewProducts: "View Products & Forecast",
     alerts: "Latest Alerts",
-    noAlerts: "No factual quality alerts for this run.",
-    viewSales: "Open sales intelligence",
-    viewClients: "Open client intelligence",
-    viewWilayas: "Open wilaya intelligence",
-    open: "Open",
-    rows: "rows",
+    alertsNote: "Verified business alerts only",
+    viewAlerts: "View all alerts",
+    noAlerts: "No verified business alerts are currently available.",
+    unavailable: "Unavailable for the current database state.",
+    retry: "Retry",
+    loading: "Loading",
+    mapUnavailable: "No realized revenue has valid supported Wilaya coordinates.",
   },
   fr: {
+    startDate: "Date de debut",
+    endDate: "Date de fin",
+    invalidRange: "La date de debut doit preceder ou suivre la date de fin.",
+    outsideRange: "Choisissez des dates dans la periode disponible de la base.",
     eyebrow: "Synthèse exécutive",
-    title: "Performance commerciale en un coup d’œil",
-    description: "Indicateurs approuvés de revenu, commandes, clients et qualité issus du dernier traitement.",
-    source: "Dernier traitement",
-    revenue: "Chiffre d’affaires",
-    orders: "Commandes confirmées",
+    title: "Vue d’ensemble",
+    description: "Performance réalisée, concentration géographique et signaux opérationnels vérifiés.",
+    source: "Analytique métier en direct",
+    revenue: "Chiffre d’affaires réalisé",
+    orders: "Commandes réalisées",
     basket: "Panier moyen",
     clients: "Clients",
+    previousMonth: "vs mois précédent",
+    distinctOrders: "Commandes réalisées distinctes",
+    basketDefinition: "Chiffre d’affaires réalisé / commandes",
+    viewClients: "Voir l’intelligence clients",
     trend: "Évolution du chiffre d’affaires",
-    trendNote: "Ventes confirmées par mois disponible",
-    quality: "Qualité des données",
-    qualityReady: "Contrôles qualité terminés",
-    qualityWarnings: "Revue qualité nécessaire",
+    trendNote: "Explorez le revenu réalisé des commandes PostgreSQL par date.",
+    viewSales: "Voir l’intelligence ventes",
+    granularity: "Granularité",
+    daily: "Jour",
+    weekly: "Semaine",
+    monthly: "Mois",
+    apply: "Appliquer",
+    dataThrough: "Données au",
+    selectedRange: "Période sélectionnée",
+    partial: "Période actuelle partielle",
+    map: "Chiffre d’affaires par wilaya",
+    mapNote: "Les bulles proportionnelles représentent le revenu réalisé des wilayas algériennes vérifiées.",
+    viewWilayas: "Voir l’intelligence wilayas",
+    product: "Produit phare",
+    productNote: "Revenu produit réalisé calculé à partir des totaux de ligne.",
+    productRevenue: "Revenu",
+    units: "Unités",
+    viewProducts: "Voir Produits & Prévisions",
     alerts: "Dernières alertes",
-    noAlerts: "Aucune alerte factuelle pour ce traitement.",
-    viewSales: "Ouvrir l’intelligence ventes",
-    viewClients: "Ouvrir l’intelligence clients",
-    viewWilayas: "Ouvrir l’intelligence wilayas",
-    open: "Ouvrir",
-    rows: "lignes",
+    alertsNote: "Alertes métier vérifiées uniquement",
+    viewAlerts: "Voir toutes les alertes",
+    noAlerts: "Aucune alerte métier vérifiée n’est actuellement disponible.",
+    unavailable: "Indisponible pour l’état actuel de la base.",
+    retry: "Réessayer",
+    loading: "Chargement",
+    mapUnavailable: "Aucun revenu réalisé ne possède de coordonnées de wilaya valides et prises en charge.",
   },
 };
 
 function money(value, language) {
+  if (value === null || value === undefined || value === "") return "—";
+  const locale = language === "fr" ? "fr-DZ" : "en-DZ";
   const number = Number(value || 0);
-  if (Math.abs(number) >= 1_000_000) return `${(number / 1_000_000).toFixed(1)}M DZD`;
-  return `${formatNumber(Math.round(number), language)} DZD`;
+  if (Math.abs(number) >= 1_000_000) {
+    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(number / 1_000_000)}M DZD`;
+  }
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(number)} DZD`;
 }
 
-function TrendChart({ points, language, partialMonths = [], onSelect }) {
-  if (!points?.length) return <div className="calm-empty">No monthly sales points are available.</div>;
-  const width = 760;
-  const height = 250;
-  const padding = { top: 24, right: 24, bottom: 38, left: 16 };
-  const values = points.map((point) => Number(point.revenue || 0));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const chartPoints = points.map((point, index) => ({
-    ...point,
-    x: padding.left + (index / Math.max(points.length - 1, 1)) * (width - padding.left - padding.right),
-    y: height - padding.bottom - ((Number(point.revenue || 0) - min) / range) * (height - padding.top - padding.bottom),
-  }));
-  const line = chartPoints.map((point) => `${point.x},${point.y}`).join(" ");
-  const area = `${padding.left},${height - padding.bottom} ${line} ${width - padding.right},${height - padding.bottom}`;
+function dateLabel(value, language) {
+  if (!value) return "—";
+  const date = new Date(`${value.length === 7 ? `${value}-01` : value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(language === "fr" ? "fr-DZ" : "en-DZ", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
 
+function MetricButton({ label, value, note, icon: Icon, primary = false, onClick }) {
   return (
-    <div className="calm-chart-wrap">
-      <svg className="calm-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={language === "fr" ? "Évolution mensuelle du revenu" : "Monthly revenue evolution"}>
-        <defs>
-          <linearGradient id="overviewRevenueFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {[0, 1, 2].map((lineIndex) => {
-          const y = padding.top + (lineIndex / 2) * (height - padding.top - padding.bottom);
-          return <line key={lineIndex} className="calm-chart-grid" x1={padding.left} x2={width - padding.right} y1={y} y2={y} />;
-        })}
-        <polygon points={area} fill="url(#overviewRevenueFill)" />
-        <polyline className="calm-chart-line" points={line} />
-        {chartPoints.map((point, index) => (
-          <g key={point.period}>
-            <circle className="calm-chart-point" cx={point.x} cy={point.y} r="5" tabIndex="0" role="button" aria-label={`${point.period}: ${money(point.revenue, language)}`} onClick={() => onSelect?.(point, index)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onSelect?.(point, index); }} />
-            <text className="calm-chart-label" x={point.x} y={height - 12} textAnchor="middle">{point.period.slice(5)}{partialMonths.includes(point.period) ? " MTD" : ""}</text>
-          </g>
-        ))}
-      </svg>
+    <button type="button" className={`overview-kpi${primary ? " overview-kpi--primary" : ""}`} onClick={onClick}>
+      <span className="overview-kpi-label"><span>{label}</span><Icon size={15} aria-hidden="true" /></span>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </button>
+  );
+}
+
+function LoadingLines({ label }) {
+  return (
+    <div className="overview-skeleton" role="status" aria-label={label}>
+      <span /><span /><span />
     </div>
   );
 }
 
-function Overview({ language = "en", onNavigate, onInsight }) {
-  const text = copy[language] || copy.en;
-  const resource = useAnalyticsResource("overview");
-  const data = resource.data;
-  const qualityAlerts = data?.quality?.alerts || data?.alerts || [];
+function ResourceState({ resource, text, children, emptyMessage = null }) {
+  if (resource.isLoading && !resource.data) return <LoadingLines label={text.loading} />;
+  if (resource.error && !resource.data) {
+    return (
+      <div className="overview-optional-state" role="alert">
+        <span>{text.unavailable}</span>
+        <button type="button" onClick={resource.retry}>{text.retry}</button>
+      </div>
+    );
+  }
+  if (!resource.data) return <div className="overview-optional-state">{emptyMessage || text.unavailable}</div>;
+  return children;
+}
 
-  const selectMetric = (label, key, value, tabId) => {
-    onInsight?.({
-      page: "overview",
-      title: label,
-      description: text.description,
-      metric_label: label,
-      selection: key,
+function Overview({ language = "en", onNavigate }) {
+  const text = copy[language] || copy.en;
+  const overviewResource = useAnalyticsResource("overview");
+  const wilayaResource = useAnalyticsResource("wilayas");
+  const productResource = useAnalyticsResource("overviewProduct");
+  const alertsResource = useAnalyticsResource("overviewAlerts");
+  const [granularity, setGranularity] = useState("monthly");
+  const [dateDraft, setDateDraft] = useState({ start: null, end: null });
+  const [appliedRange, setAppliedRange] = useState({ start: "", end: "" });
+  const [dateRangeError, setDateRangeError] = useState("");
+  const trendResource = useRevenueTrendResource({
+    granularity,
+    startDate: appliedRange.start,
+    endDate: appliedRange.end,
+  });
+
+  const validWilayas = (wilayaResource.data?.wilayas || []).filter((wilaya) => (
+    wilaya.geography_status === "valid_wilaya"
+    && Number.isFinite(Number(wilaya.latitude))
+    && Number.isFinite(Number(wilaya.longitude))
+    && Number.isFinite(Number(wilaya.revenue))
+    && Number(wilaya.revenue) >= 0
+  ));
+  const topProduct = productResource.data?.top_product;
+  const latestAlerts = (alertsResource.data?.alerts || []).slice(0, 3);
+
+  const applyDateRange = (event) => {
+    event.preventDefault();
+    const availableStart = trendResource.data?.available_start || "";
+    const availableEnd = trendResource.data?.available_end || "";
+    const start = dateDraft.start ?? availableStart;
+    const end = dateDraft.end ?? availableEnd;
+    if (!start || !end) {
+      setDateRangeError(text.outsideRange);
+      return;
+    }
+    if (start > end) {
+      setDateRangeError(text.invalidRange);
+      return;
+    }
+    if ((availableStart && start < availableStart) || (availableEnd && end > availableEnd)) {
+      setDateRangeError(text.outsideRange);
+      return;
+    }
+    setDateRangeError("");
+    setAppliedRange({ start, end });
+  };
+
+  const navigateToWilaya = (id, label, metrics) => {
+    onNavigate?.("wilayas", {
+      page: "wilayas",
+      selection_type: "wilaya",
+      selection: label,
       selection_label: label,
-      approved_metrics: { [key]: value },
-      suggestions: tabId ? [{ id: `overview-${tabId}`, label: { en: text.open, fr: text.open }, tabId }] : [],
+      approved_metrics: {
+        wilaya_code: id,
+        realized_revenue: metrics.revenue,
+        realized_orders: metrics.orders,
+        clients: metrics.clients,
+      },
     });
   };
 
   return (
-    <section className="page-shell calm-page">
+    <section className="page-shell calm-page overview-executive-page">
       <ScrollReveal>
-        <header className="calm-page-header">
+        <header className="calm-page-header overview-executive-header">
           <div>
             <p className="section-eyebrow">{text.eyebrow}</p>
             <h2>{text.title}</h2>
@@ -133,54 +231,199 @@ function Overview({ language = "en", onNavigate, onInsight }) {
         </header>
       </ScrollReveal>
 
-      <AnalyticsState {...resource} language={language}>
-        {data && (
-          <>
-            <ScrollReveal delay={60}>
-              <section className="metric-strip" aria-label={text.eyebrow}>
-                <button type="button" className="metric-strip-item metric-strip-item--primary" onClick={() => selectMetric(text.revenue, "revenue", data.revenue, "sales")}>
-                  <span>{text.revenue}</span><strong>{money(data.revenue, language)}</strong><small>{data.growth_pct == null ? "—" : `${data.growth_pct >= 0 ? "+" : ""}${data.growth_pct}% vs previous month`}</small>
-                </button>
-                <button type="button" className="metric-strip-item" onClick={() => selectMetric(text.orders, "orders", data.orders, "sales")}>
-                  <span>{text.orders}</span><strong>{formatNumber(data.orders, language)}</strong><small>{data.scope?.rows_used?.realized_orders || 0} {text.rows}</small>
-                </button>
-                <button type="button" className="metric-strip-item" onClick={() => selectMetric(text.basket, "average_basket", data.average_basket, "sales")}>
-                  <span>{text.basket}</span><strong>{money(data.average_basket, language)}</strong><small>{text.orders}</small>
-                </button>
-                <button type="button" className="metric-strip-item" onClick={() => selectMetric(text.clients, "clients", data.clients, "clients")}>
-                  <span>{text.clients}</span><strong>{formatNumber(data.clients, language)}</strong><small>{data.top_wilaya?.label || "—"}</small>
-                </button>
-              </section>
-            </ScrollReveal>
+      <ScrollReveal delay={50}>
+        <ResourceState resource={overviewResource} text={text}>
+          {overviewResource.data && (
+            <section className="overview-kpi-grid" aria-label={text.eyebrow}>
+              <MetricButton
+                label={text.revenue}
+                value={money(overviewResource.data.revenue, language)}
+                note={overviewResource.data.growth_pct == null ? "—" : `${overviewResource.data.growth_pct >= 0 ? "+" : ""}${overviewResource.data.growth_pct}% ${text.previousMonth}`}
+                icon={TrendingUp}
+                primary
+                onClick={() => onNavigate?.("sales")}
+              />
+              <MetricButton
+                label={text.orders}
+                value={formatNumber(overviewResource.data.orders, language)}
+                note={text.distinctOrders}
+                icon={ShoppingCart}
+                onClick={() => onNavigate?.("sales")}
+              />
+              <MetricButton
+                label={text.basket}
+                value={money(overviewResource.data.average_basket, language)}
+                note={text.basketDefinition}
+                icon={ShoppingCart}
+                onClick={() => onNavigate?.("sales")}
+              />
+              <MetricButton
+                label={text.clients}
+                value={formatNumber(overviewResource.data.clients, language)}
+                note={text.viewClients}
+                icon={Users}
+                onClick={() => onNavigate?.("clients")}
+              />
+            </section>
+          )}
+        </ResourceState>
+      </ScrollReveal>
 
-            <div className="calm-content-grid">
-              <ScrollReveal className="calm-section calm-section--wide" delay={100}>
-                <section>
-                  <div className="calm-section-heading"><div><p className="section-eyebrow">{text.trend}</p><h3>{text.trend}</h3><p>{text.trendNote}</p></div><span>{data.trend?.length || 0} months</span></div>
-                  <TrendChart points={data.trend} language={language} partialMonths={data.partial_months} onSelect={(point) => selectMetric(point.period, "revenue", point.revenue, "sales")} />
-                </section>
-              </ScrollReveal>
-
-              <ScrollReveal className="calm-section" delay={140}>
-                <section>
-                  <div className="calm-section-heading"><div><p className="section-eyebrow">{text.quality}</p><h3>{qualityAlerts.length ? text.qualityWarnings : text.qualityReady}</h3></div>{qualityAlerts.length ? <CircleAlert size={18} /> : <CheckCircle2 size={18} />}</div>
-                  <p className="calm-section-copy">{qualityAlerts.length ? `${qualityAlerts.length} ${text.alerts.toLowerCase()}.` : text.noAlerts}</p>
-                  <div className="calm-actions">
-                    <button type="button" className="text-link" onClick={() => onNavigate?.("upload")}>{text.open} <ArrowUpRight size={14} /></button>
-                  </div>
-                </section>
-              </ScrollReveal>
+      <ScrollReveal delay={90}>
+        <section className="overview-panel overview-trend-panel" aria-labelledby="overview-trend-title">
+          <div className="overview-panel-heading">
+            <div>
+              <p className="section-eyebrow">{text.trend}</p>
+              <h3 id="overview-trend-title">{text.trend}</h3>
+              <p>{text.trendNote}</p>
             </div>
+            <button type="button" className="text-link" onClick={() => onNavigate?.("sales")}>
+              {text.viewSales} <ArrowUpRight size={14} />
+            </button>
+          </div>
 
-            <ScrollReveal className="calm-section calm-section--alerts" delay={180}>
-              <section>
-                <div className="calm-section-heading"><div><p className="section-eyebrow">{text.alerts}</p><h3>{text.alerts}</h3></div><button type="button" className="text-link" onClick={() => onNavigate?.("alerts")}>{text.open} <ArrowUpRight size={14} /></button></div>
-                {qualityAlerts.length ? <ul className="signal-list">{qualityAlerts.slice(0, 6).map((alert, index) => <li key={`${alert.code}-${index}`}><span className={`signal-dot signal-dot--${alert.severity || "info"}`} /><div><strong>{alert.title || alert.code}</strong><p>{alert.message}</p></div><small>{alert.count || 0}</small></li>)}</ul> : <p className="calm-section-copy">{text.noAlerts}</p>}
-              </section>
-            </ScrollReveal>
-          </>
-        )}
-      </AnalyticsState>
+          <div className="overview-trend-filters">
+            <fieldset className="overview-filter-group">
+              <legend>{text.granularity}</legend>
+              <div className="overview-granularity-control">
+                {granularities.map((item) => (
+                  <button key={item} type="button" className={granularity === item ? "is-active" : ""} aria-pressed={granularity === item} onClick={() => setGranularity(item)}>
+                    {text[item]}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <form className="overview-custom-range" onSubmit={applyDateRange}>
+              <label>
+                <span>{text.startDate}</span>
+                <input
+                  type="date"
+                  value={dateDraft.start ?? trendResource.data?.available_start ?? ""}
+                  min={trendResource.data?.available_start || undefined}
+                  max={dateDraft.end || trendResource.data?.available_end || undefined}
+                  onChange={(event) => setDateDraft((current) => ({ ...current, start: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                <span>{text.endDate}</span>
+                <input
+                  type="date"
+                  value={dateDraft.end ?? trendResource.data?.available_end ?? ""}
+                  min={dateDraft.start || trendResource.data?.available_start || undefined}
+                  max={trendResource.data?.available_end || undefined}
+                  onChange={(event) => setDateDraft((current) => ({ ...current, end: event.target.value }))}
+                  required
+                />
+              </label>
+              <button type="submit">{text.apply}</button>
+            </form>
+            {dateRangeError && <p className="overview-filter-error" role="alert">{dateRangeError}</p>}
+          </div>
+
+          {trendResource.data && (
+            <div className="overview-trend-context" aria-live="polite">
+              <span>{text.selectedRange}: <strong>{dateLabel(trendResource.data.range_start, language)} – {dateLabel(trendResource.data.range_end, language)}</strong></span>
+              <span>{text.dataThrough}: <strong>{dateLabel(trendResource.data.data_through, language)}</strong></span>
+              {trendResource.data.partial_periods?.length > 0 && <em>{text.partial}</em>}
+            </div>
+          )}
+          <InteractiveRevenueTrend
+            key={`${granularity}-${appliedRange.start}-${appliedRange.end}-${trendResource.response?.generated_at || "pending"}-${trendResource.data?.trend?.length || 0}`}
+            resource={trendResource}
+            language={language}
+          />
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal delay={130}>
+        <section className="overview-panel overview-map-panel" aria-labelledby="overview-map-title">
+          <div className="overview-panel-heading">
+            <div>
+              <p className="section-eyebrow">{text.map}</p>
+              <h3 id="overview-map-title">{text.map}</h3>
+              <p>{text.mapNote}</p>
+            </div>
+            <button type="button" className="text-link" onClick={() => onNavigate?.("wilayas")}>
+              {text.viewWilayas} <ArrowUpRight size={14} />
+            </button>
+          </div>
+          <ResourceState resource={wilayaResource} text={text} emptyMessage={text.mapUnavailable}>
+            {validWilayas.length ? (
+              <RevenueBubbleMap
+                wilayas={validWilayas}
+                language={language}
+                onSelect={navigateToWilaya}
+                onOpen={() => onNavigate?.("wilayas")}
+              />
+            ) : <div className="overview-optional-state">{text.mapUnavailable}</div>}
+          </ResourceState>
+        </section>
+      </ScrollReveal>
+
+      <div className="overview-lower-grid">
+        <ScrollReveal delay={170}>
+          <section className="overview-panel overview-product-panel" aria-labelledby="overview-product-title">
+            <div className="overview-panel-heading">
+              <div>
+                <p className="section-eyebrow">{text.product}</p>
+                <h3 id="overview-product-title">{text.product}</h3>
+                <p>{text.productNote}</p>
+              </div>
+              <Package size={18} aria-hidden="true" />
+            </div>
+            <ResourceState resource={productResource} text={text}>
+              {topProduct ? (
+                <>
+                  <button type="button" className="overview-product-card" onClick={() => onNavigate?.("products")}>
+                    <span className="overview-product-icon"><Package size={19} aria-hidden="true" /></span>
+                    <span className="overview-product-main"><strong>{topProduct.label}</strong><small>{text.productRevenue}</small></span>
+                    <span className="overview-product-value"><strong>{money(topProduct.revenue, language)}</strong><ArrowUpRight size={15} aria-hidden="true" /></span>
+                  </button>
+                  <dl className="overview-product-meta">
+                    <div><dt>{text.orders}</dt><dd>{formatNumber(topProduct.orders, language)}</dd></div>
+                    <div><dt>{text.units}</dt><dd>{formatNumber(topProduct.units, language)}</dd></div>
+                  </dl>
+                </>
+              ) : <div className="overview-optional-state">{text.unavailable}</div>}
+            </ResourceState>
+            <button type="button" className="text-link overview-panel-link" onClick={() => onNavigate?.("products")}>
+              {text.viewProducts} <ArrowUpRight size={14} />
+            </button>
+          </section>
+        </ScrollReveal>
+
+        <ScrollReveal delay={210}>
+          <section className="overview-panel overview-alerts-panel" aria-labelledby="overview-alerts-title">
+            <div className="overview-panel-heading">
+              <div>
+                <p className="section-eyebrow">{text.alerts}</p>
+                <h3 id="overview-alerts-title">{text.alerts}</h3>
+                <p>{text.alertsNote}</p>
+              </div>
+              <BellRing size={18} aria-hidden="true" />
+            </div>
+            <ResourceState resource={alertsResource} text={text}>
+              {latestAlerts.length ? (
+                <ul className="overview-alert-list">
+                  {latestAlerts.map((alert) => (
+                    <li key={`${alert.code}-${alert.observed_at}`}>
+                      <button type="button" className="overview-alert-item" onClick={() => onNavigate?.("alerts")}>
+                        <span className={`overview-alert-dot overview-alert-dot--${alert.severity || "info"}`} aria-hidden="true" />
+                        <span><strong>{alert.title}</strong><small>{alert.message}</small><small>{dateLabel(alert.observed_at?.slice(0, 10), language)}</small></span>
+                        <em>{formatNumber(alert.value, language)} {alert.unit}</em>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <div className="overview-optional-state overview-optional-state--muted">{text.noAlerts}</div>}
+            </ResourceState>
+            <button type="button" className="text-link overview-panel-link" onClick={() => onNavigate?.("alerts")}>
+              {text.viewAlerts} <ArrowUpRight size={14} />
+            </button>
+          </section>
+        </ScrollReveal>
+      </div>
     </section>
   );
 }

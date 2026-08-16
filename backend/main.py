@@ -1,23 +1,11 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from database import get_db
-from models import Customer
+"""Canonical compatibility entrypoint for the repository-root launch command.
 
-app = FastAPI(title="Energical Decision Platform API")
+The production application lives in ``app.backend``.  This shim keeps the
+natural ``uvicorn backend.main:app`` command pointed at that same application
+instead of the obsolete minimal API that previously masked all analytics
+routes.
+"""
 
-@app.get("/")
-def read_root():
-    return {"message": "API Energical fonctionne correctement"}
+from app.backend.main import app
 
-@app.get("/test-db")
-def test_db_connection(db: Session = Depends(get_db)):
-    result = db.execute(text("SELECT 1"))
-    return {"database_connection": "OK", "result": result.scalar()}
-
-
-
-@app.get("/customers/count")
-def count_customers(db: Session = Depends(get_db)):
-    count = db.query(Customer).count()
-    return {"total_customers": count}
+__all__ = ["app"]
