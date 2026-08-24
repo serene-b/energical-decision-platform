@@ -5,7 +5,7 @@ import os
 
 load_dotenv()
 
-DATABASE_URL = "postgresql://postgres:lamisse1212@localhost:5432/energical_platform"
+DATABASE_URL = "postgresql://postgres:sirine1636@localhost:5433/energical_platform"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

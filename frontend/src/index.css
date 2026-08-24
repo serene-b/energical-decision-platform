@@ -2404,21 +2404,30 @@ button.metric-strip-item:focus-visible {
 
 .calm-chart-wrap {
   position: relative;
-  min-height: 230px;
+  min-height: 270px;
+  overflow-x: auto;
+  scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
 .calm-chart {
   display: block;
   width: 100%;
   height: auto;
-  min-height: 220px;
+  min-width: 660px;
+  min-height: 250px;
   overflow: visible;
 }
 
 .calm-chart-grid {
   stroke: var(--chart-grid);
   stroke-width: 1;
-  stroke-dasharray: 3 7;
+  stroke-dasharray: 2 6;
+}
+
+.calm-chart-area {
+  fill: url("#sales-revenue-area");
+  pointer-events: none;
 }
 
 .calm-chart-line {
@@ -2426,27 +2435,57 @@ button.metric-strip-item:focus-visible {
   stroke: var(--chart-line);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 3;
+  stroke-width: 3.5;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 5px 7px color-mix(in srgb, var(--chart-line) 18%, transparent));
 }
 
 .calm-chart-point {
   cursor: pointer;
   fill: var(--bg-surface);
   stroke: var(--chart-line);
+  stroke-width: 2.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  vector-effect: non-scaling-stroke;
+  transition: transform var(--transition-fast), fill var(--transition-fast), stroke-width var(--transition-fast);
+}
+
+.calm-chart-point.is-latest {
+  fill: var(--accent);
+  stroke: var(--bg-surface);
   stroke-width: 3;
-  transition: r var(--transition-fast), fill var(--transition-fast);
 }
 
 .calm-chart-point:hover,
 .calm-chart-point:focus-visible {
   fill: var(--accent);
+  stroke-width: 3;
+  transform: scale(1.45);
   outline: none;
 }
 
-.calm-chart-label {
+.calm-chart-label,
+.calm-chart-y-label {
   fill: var(--text-muted);
   font-family: "IBM Plex Mono", monospace;
-  font-size: 11px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.calm-chart-label {
+  fill: var(--text-secondary);
+  font-weight: 550;
+  letter-spacing: -0.02em;
+}
+
+.calm-chart-y-label {
+  font-size: 9px;
+}
+
+.calm-chart-tick {
+  stroke: var(--border-strong);
+  stroke-width: 1;
 }
 
 .calm-empty,
