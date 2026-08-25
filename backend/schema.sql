@@ -22,7 +22,8 @@ CREATE TABLE catalogue (
     subcategory      VARCHAR(100),
     unit_price       NUMERIC(12,2),
     stock_status     VARCHAR(50),
-    short_desc       TEXT
+    short_desc       TEXT,
+    ever_sold        BOOLEAN
 );
 
 -- ============================================
@@ -47,7 +48,7 @@ CREATE TABLE orders (
 -- Table: transactions
 -- ============================================
 CREATE TABLE transactions (
-    transaction_id           SERIAL PRIMARY KEY,  -- ID تلقائي (ماكانش موجود فالـ CSV الأصلي)
+    transaction_id           SERIAL PRIMARY KEY,  
     order_id_stage           VARCHAR(50) REFERENCES orders(order_id_stage),
     customer_id_stage        VARCHAR(50) REFERENCES customers(customer_id_stage),
     order_date                TIMESTAMP,
@@ -59,11 +60,18 @@ CREATE TABLE transactions (
     product_name              VARCHAR(255),
     sku_quality                VARCHAR(20),
     category                   VARCHAR(100),
-    subcategory                VARCHAR(100),
+    subcategory                VARCHAR(255),
     quantity                    INTEGER,
     unit_price                  NUMERIC(12,2),
     line_total                  NUMERIC(12,2),
     order_status                 VARCHAR(50),
     payment_method_group         VARCHAR(50),
-    sales_channel                 VARCHAR(50)
+    payment_method                VARCHAR(100),
+    sales_channel                 VARCHAR(50),
+    has_negative_price            BOOLEAN,
+    order_total_amount            NUMERIC(12,2),
+    shipping_method                VARCHAR(100),
+    total_weight                   NUMERIC(10,2),
+    shipping_cost                  NUMERIC(10,2),
+    free_shipping                  BOOLEAN
 );
