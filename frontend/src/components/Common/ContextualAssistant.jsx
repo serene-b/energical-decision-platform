@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Bot,
-  Check,
-  LoaderCircle,
-  LockKeyhole,
+  CircleAlert,
+  RotateCcw,
   Send,
   Sparkles,
   X,
 } from "lucide-react";
 
 import { queryAssistant } from "../../api/pipeline.js";
+import { AssistantMessage, AssistantTypingIndicator } from "./AssistantMessage.jsx";
 
 const translations = {
   en: {
@@ -19,50 +19,81 @@ const translations = {
     insightEyebrow: "Contextual exploration",
     investigate: "Continue investigating",
     askAi: "Ask AI about this",
-    assistantEyebrow: "Contextual assistant",
+    assistantEyebrow: "Business analysis",
     assistantTitle: "Energical AI",
-    assistantDescription: "Ask about the current page or approved selection context.",
-    approvedContext: "Context shared with the assistant",
-    selection: "Selection",
-    boundary: "Privacy boundary",
-    boundaryValue: "Curated metrics only · no raw rows, customer records, SQL, or database access",
+    businessAnalyst: "Your intelligent business analyst",
+    assistantDescription: "Ask about the entire platform, its verified metrics, and analysis results.",
+    online: "Online",
+    globalView: "Global business view",
+    verifiedData: "Based on platform data",
+    welcomeTitle: "Your business, understood.",
+    welcomeDescription: "Ask a question about performance, revenue, customers, products, or trends. I’ll connect the answer to the data available across Energical.",
     suggestions: "Suggested prompts",
     prompts: {
       upload: ["Summarize the quality checks", "List the applied transformations", "Which rules remain deferred?"],
-      default: ["What context is available here?", "Explain the selected metric", "What should I inspect next?"],
+      default: ["What are our most important KPIs?", "Which products perform best?", "What are the main trends?"],
     },
-    placeholder: "Ask about this context…",
+    placeholder: "Ask anything about your business data…",
     send: "Send question",
-    providerBoundary: "AI provider not connected",
-    providerBoundaryDescription:
-      "Your question reached the protected integration boundary, but was not sent to a model. No answer was generated.",
-    thinking: "Contacting the approved assistant boundary…",
-    emptyContext: "Current page",
+    thinking: "Reviewing the platform data…",
+    errorTitle: "I couldn’t complete that analysis",
+    errorDescription: "The analysis is temporarily unavailable. Please try again in a moment.",
+    retry: "Try again",
+    keyboardHint: "Enter to send · Shift + Enter for a new line",
   },
   fr: {
     close: "Fermer le panneau",
     insightEyebrow: "Exploration contextuelle",
     investigate: "Poursuivre l’exploration",
     askAi: "Demander à l’IA",
-    assistantEyebrow: "Assistant contextuel",
+    assistantEyebrow: "Analyse métier",
     assistantTitle: "Energical AI",
-    assistantDescription: "Posez une question sur la page ou la sélection approuvée.",
-    approvedContext: "Contexte partagé avec l’assistant",
-    selection: "Sélection",
-    boundary: "Frontière de confidentialité",
-    boundaryValue: "Indicateurs sélectionnés uniquement · aucune ligne brute, donnée client, requête SQL ou base de données",
+    businessAnalyst: "Votre analyste métier intelligent",
+    assistantDescription: "Posez une question sur toute la plateforme, ses indicateurs vérifiés et ses résultats d’analyse.",
+    online: "En ligne",
+    globalView: "Vue métier globale",
+    verifiedData: "Basé sur les données de la plateforme",
+    welcomeTitle: "Votre activité, enfin lisible.",
+    welcomeDescription: "Interrogez les performances, les revenus, les clients, les produits ou les tendances. Je relierai la réponse aux données disponibles dans Energical.",
     suggestions: "Questions suggérées",
     prompts: {
       upload: ["Résumer les contrôles qualité", "Lister les transformations appliquées", "Quelles règles restent différées ?"],
-      default: ["Quel contexte est disponible ici ?", "Expliquer l’indicateur sélectionné", "Que faut-il examiner ensuite ?"],
+      default: ["Quels sont nos KPI les plus importants ?", "Quels produits sont les plus performants ?", "Quelles sont les principales tendances ?"],
     },
-    placeholder: "Poser une question sur ce contexte…",
+    placeholder: "Posez une question sur vos données métier…",
     send: "Envoyer la question",
-    providerBoundary: "Fournisseur IA non connecté",
-    providerBoundaryDescription:
-      "Votre question a atteint la frontière d’intégration protégée, mais n’a pas été envoyée à un modèle. Aucune réponse n’a été générée.",
-    thinking: "Connexion à la frontière d’assistance approuvée…",
-    emptyContext: "Page actuelle",
+    thinking: "Analyse des données de la plateforme…",
+    errorTitle: "L’analyse n’a pas pu aboutir",
+    errorDescription: "L’analyse est momentanément indisponible. Veuillez réessayer dans quelques instants.",
+    retry: "Réessayer",
+    keyboardHint: "Entrée pour envoyer · Maj + Entrée pour une nouvelle ligne",
+  },
+  ar: {
+    close: "إغلاق اللوحة",
+    insightEyebrow: "استكشاف تحليلي",
+    investigate: "متابعة التحليل",
+    askAi: "اسأل المساعد",
+    assistantEyebrow: "تحليل الأعمال",
+    assistantTitle: "Energical AI",
+    businessAnalyst: "مساعدك الذكي لتحليل الأعمال",
+    assistantDescription: "اسأل عن كامل المنصة ومؤشراتها الموثّقة ونتائج التحليل.",
+    online: "متصل",
+    globalView: "رؤية شاملة للأعمال",
+    verifiedData: "مبني على بيانات المنصة",
+    welcomeTitle: "أصبحت بيانات أعمالك أوضح.",
+    welcomeDescription: "اسأل عن الأداء أو الإيرادات أو العملاء أو المنتجات أو الاتجاهات، وسأربط الإجابة بالبيانات المتاحة في Energical.",
+    suggestions: "أسئلة مقترحة",
+    prompts: {
+      upload: ["لخّص فحوصات الجودة", "ما التحويلات المطبقة؟", "ما النتائج المتاحة من خط التحليل؟"],
+      default: ["ما أهم مؤشرات الأداء لدينا؟", "ما المنتجات الأفضل أداءً؟", "ما الاتجاهات الرئيسية؟"],
+    },
+    placeholder: "اسأل عن بيانات أعمالك…",
+    send: "إرسال السؤال",
+    thinking: "جارٍ تحليل بيانات المنصة…",
+    errorTitle: "تعذّر إكمال التحليل",
+    errorDescription: "التحليل غير متاح مؤقتًا. يُرجى المحاولة مرة أخرى بعد قليل.",
+    retry: "حاول مجددًا",
+    keyboardHint: "Enter للإرسال · Shift + Enter لسطر جديد",
   },
 };
 
@@ -159,86 +190,184 @@ function ContextualAssistantDrawer({ context, language = "en", onClose }) {
   const [messages, setMessages] = useState([]);
   const [isSending, setIsSending] = useState(false);
   const [boundaryError, setBoundaryError] = useState(null);
-  const approvedMetrics = useMemo(() => Object.entries(context?.approved_metrics || {}), [context]);
+  const conversationRef = useRef(null);
   const prompts = context?.page === "upload" ? text.prompts.upload : text.prompts.default;
+
+  useEffect(() => {
+    if (!context) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [context, onClose]);
+
+  useEffect(() => {
+    const conversation = conversationRef.current;
+    if (!conversation) return;
+    conversation.scrollTo({ top: conversation.scrollHeight, behavior: "smooth" });
+  }, [messages, isSending, boundaryError]);
 
   if (!context) return null;
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const cleanQuestion = question.trim();
+  const sendQuestion = async (value) => {
+    const cleanQuestion = value.trim();
     if (!cleanQuestion || isSending) return;
+
     setMessages((current) => [...current, { role: "user", content: cleanQuestion }]);
     setQuestion("");
     setBoundaryError(null);
     setIsSending(true);
+
     try {
       const response = await queryAssistant({
         page: context.page,
         selection_type: context.selection_type,
         selection: context.selection,
         approved_metrics: context.approved_metrics || {},
+        interface_language: language,
+        scope: "entire_platform",
+        conversation: messages.slice(-8),
         query: cleanQuestion,
         question: cleanQuestion,
       });
-      if (response?.answer) {
-        setMessages((current) => [...current, { role: "assistant", content: response.answer }]);
+      if (response?.status === "error") {
+        setBoundaryError({ question: cleanQuestion });
+        return;
       }
-    } catch (error) {
-      setBoundaryError(error);
+      if (response?.answer) {
+        setMessages((current) => [...current, { role: "assistant", content: String(response.answer) }]);
+      } else {
+        setBoundaryError({ question: cleanQuestion });
+      }
+    } catch {
+      setBoundaryError({ question: cleanQuestion });
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    void sendQuestion(question);
   };
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (question.trim() && !isSending) {
-        handleSubmit(event);
+        void sendQuestion(question);
       }
     }
   };
 
   return (
-    <DrawerFrame onClose={onClose} closeLabel={text.close} className="context-drawer-backdrop--assistant">
-      <div className="assistant-drawer-header">
-        <div className="context-drawer-topline"><span className="context-drawer-icon"><Bot size={17} /></span><p className="panel-eyebrow">{text.assistantEyebrow}</p></div>
-        <h2>{text.assistantTitle}</h2><p className="context-drawer-description">{text.assistantDescription}</p>
-      </div>
+    createPortal(
+      <div className="assistant-layer" onMouseDown={onClose}>
+        <section
+          className="assistant-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="assistant-panel-title"
+          dir={language === "ar" ? "rtl" : "ltr"}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <header className="assistant-panel-header">
+            <div className="assistant-panel-identity">
+              <span className="assistant-panel-avatar" aria-hidden="true">
+                <Bot size={21} strokeWidth={2} />
+                <i />
+              </span>
+              <div>
+                <p className="assistant-panel-eyebrow">{text.assistantEyebrow}</p>
+                <h2 id="assistant-panel-title">{text.assistantTitle}</h2>
+                <span>{text.businessAnalyst}</span>
+              </div>
+            </div>
+            <button type="button" className="assistant-panel-close" onClick={onClose} aria-label={text.close}>
+              <X size={18} strokeWidth={1.9} />
+            </button>
+          </header>
 
-      <div className="assistant-boundary-note"><LockKeyhole size={15} /><span><strong>{text.boundary}</strong>{text.boundaryValue}</span></div>
+          <div className="assistant-panel-status" aria-label={`${text.online} · ${text.globalView}`}>
+            <span className="assistant-online-dot" aria-hidden="true" />
+            <span>{text.online}</span>
+            <span className="assistant-status-divider" aria-hidden="true" />
+            <span>{text.globalView}</span>
+          </div>
 
-      <details className="assistant-context-details">
-        <summary>{text.approvedContext}</summary>
-        <dl className="assistant-context-list">
-          <div><dt>{text.selection}</dt><dd>{context.selection || text.emptyContext}</dd></div>
-          {approvedMetrics.map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}
-        </dl>
-      </details>
+          <div className="assistant-conversation" ref={conversationRef} aria-live="polite">
+            {!messages.length && !isSending && (
+              <div className="assistant-welcome">
+                <span className="assistant-welcome-icon" aria-hidden="true"><Bot size={25} strokeWidth={1.8} /></span>
+                <h3>{text.welcomeTitle}</h3>
+                <p>{text.welcomeDescription}</p>
+              </div>
+            )}
 
-      <div className="assistant-conversation" aria-live="polite">
-        {messages.map((message, index) => <div className={`assistant-message assistant-message--${message.role}`} key={`${message.role}-${index}`}>{message.content}</div>)}
-        {isSending && <div className="assistant-loading"><LoaderCircle className="spin" size={16} />{text.thinking}</div>}
-        {boundaryError && <div className="assistant-provider-state" role="status"><span><Check size={15} /></span><div><strong>{text.providerBoundary}</strong><p>{boundaryError.code === "assistant_not_configured" ? text.providerBoundaryDescription : boundaryError.message}</p></div></div>}
-      </div>
+            {messages.map((message, index) => (
+              <AssistantMessage
+                key={`${message.role}-${index}`}
+                role={message.role}
+                content={message.content}
+                language={language}
+                verifiedLabel={text.verifiedData}
+              />
+            ))}
 
-      {!messages.length && <div className="assistant-suggestions"><span>{text.suggestions}</span>{prompts.map((prompt) => <button type="button" key={prompt} onClick={() => setQuestion(prompt)}>{prompt}<ArrowRight size={14} /></button>)}</div>}
+            {isSending && <AssistantTypingIndicator label={text.thinking} />}
 
-      <form className="assistant-composer" onSubmit={handleSubmit}>
-        <label>
-          <span className="sr-only">{text.placeholder}</span>
-          <textarea
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={text.placeholder}
-            rows="3"
-          />
-        </label>
-        <button type="submit" disabled={!question.trim() || isSending} aria-label={text.send}><Send size={17} /></button>
-      </form>
-    </DrawerFrame>
+            {boundaryError && (
+              <div className="assistant-error" role="alert">
+                <span className="assistant-error-icon" aria-hidden="true"><CircleAlert size={17} /></span>
+                <div>
+                  <strong>{text.errorTitle}</strong>
+                  <p>{text.errorDescription}</p>
+                  <button type="button" onClick={() => void sendQuestion(boundaryError.question)} disabled={isSending}>
+                    <RotateCcw size={14} />{text.retry}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!messages.length && !isSending && (
+            <div className="assistant-suggestions">
+              <span>{text.suggestions}</span>
+              <div>
+                {prompts.map((prompt) => (
+                  <button type="button" key={prompt} onClick={() => setQuestion(prompt)}>
+                    <span>{prompt}</span><ArrowRight size={14} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <form className="assistant-composer" onSubmit={handleSubmit}>
+            <div className="assistant-input-wrap">
+              <label className="sr-only" htmlFor="assistant-question">{text.placeholder}</label>
+              <textarea
+                id="assistant-question"
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={text.placeholder}
+                rows={1}
+                disabled={isSending}
+              />
+              <button type="submit" disabled={!question.trim() || isSending} aria-label={text.send}>
+                <Send size={17} strokeWidth={2} />
+              </button>
+            </div>
+            <p className="assistant-keyboard-hint">{text.keyboardHint}</p>
+          </form>
+        </section>
+      </div>,
+      document.body,
+    )
   );
 }
 

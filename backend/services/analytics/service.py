@@ -1,12 +1,22 @@
 import os
 import logging
 import sys
+import unicodedata
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 import pandas as pd
 from sqlalchemy import text
 
 try:
+    from pipeline.kpis.contract import (
+        filter_realized_sales,
+        filter_realized_transactions,
+        calculate_platform_aov,
+        calculate_total_revenue,
+        calculate_total_orders,
+        calculate_total_clients,
+        calculate_sales_growth,
+    )
     from pipeline.kpis.cleaning import clean_dtypes
     from pipeline.kpis.client_intelligence import client_recency
     from pipeline.kpis.product_intelligence import Top_products, avg_order_quant_per_product
@@ -30,6 +40,15 @@ except ImportError:
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     if PROJECT_ROOT not in sys.path:
         sys.path.insert(0, PROJECT_ROOT)
+    from pipeline.kpis.contract import (
+        filter_realized_sales,
+        filter_realized_transactions,
+        calculate_platform_aov,
+        calculate_total_revenue,
+        calculate_total_orders,
+        calculate_total_clients,
+        calculate_sales_growth,
+    )
     from pipeline.kpis.cleaning import clean_dtypes
     from pipeline.kpis.client_intelligence import client_recency
     from pipeline.kpis.product_intelligence import Top_products, avg_order_quant_per_product
@@ -138,16 +157,34 @@ def _db_has_data() -> bool:
     return False
 
 
+def _status_key(value: Any) -> str:
+    text_value = "" if value is None else str(value).strip().casefold()
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", text_value)
+        if not unicodedata.combining(char)
+    )
+
+
+# The notebook uses the canonical French labels. The test/dev seed and some
+# imported business files use their English equivalents, so recognize both
+# without changing the KPI definition of realized sales.
+REALIZED_SALES_STATUS_KEYS = {
+    *(_status_key(status) for status in VALID_SALES_STATUSES),
+    "completed",
+    "complete",
+    "delivered",
+    "paid",
+    "partially refunded",
+    "partially_refunded",
+}
+
+
 def _load_valid_sales() -> Optional[pd.DataFrame]:
     """Load the canonical realized-sales population from the orders table."""
     df_orders = execute_query("SELECT * FROM orders")
     if df_orders is None:
         return None
-    if "order_status" not in df_orders.columns:
-        return df_orders.iloc[0:0].copy()
-    return df_orders.loc[
-        df_orders["order_status"].isin(VALID_SALES_STATUSES)
-    ].copy()
+    return filter_realized_sales(df_orders)
 
 
 def _load_valid_transactions(valid_sales: Optional[pd.DataFrame] = None) -> Optional[pd.DataFrame]:
@@ -180,21 +217,7 @@ def _load_valid_transactions(valid_sales: Optional[pd.DataFrame] = None) -> Opti
     )
     if df_transactions is None:
         return None
-    if (
-        valid_sales is not None
-        and "order_id_stage" in df_transactions.columns
-        and "order_id_stage" in valid_sales.columns
-    ):
-        valid_order_ids = valid_sales["order_id_stage"].dropna().unique()
-        df_transactions = df_transactions.loc[
-            df_transactions["order_id_stage"].isin(valid_order_ids)
-        ].copy()
-        return df_transactions
-    if "order_status" in df_transactions.columns:
-        return df_transactions.loc[
-            df_transactions["order_status"].isin(VALID_SALES_STATUSES)
-        ].copy()
-    return df_transactions.iloc[0:0].copy()
+    return filter_realized_transactions(df_transactions, valid_sales)
 
 def get_overview_data() -> Dict[str, Any]:
     valid_sales = _load_valid_sales()
@@ -205,10 +228,10 @@ def get_overview_data() -> Dict[str, Any]:
         valid_sales["order_total_amount"] = pd.to_numeric(
             valid_sales["order_total_amount"], errors="coerce"
         ).fillna(0)
-        total_rev = float(sale_number(valid_sales))
-        total_orders = int(valid_sales["order_id_stage"].nunique()) if "order_id_stage" in valid_sales.columns else int(len(valid_sales))
-        avg_basket = float(total_rev / total_orders) if total_orders > 0 else 0.0
-        total_clients = int(len(df_customers)) if df_customers is not None else 0
+        total_rev = calculate_total_revenue(valid_sales)
+        total_orders = calculate_total_orders(valid_sales)
+        avg_basket = calculate_platform_aov(valid_sales)
+        total_clients = calculate_total_clients(df_customers)
 
         growth_pct = 0.0
         if "order_date" in valid_sales.columns:
@@ -374,9 +397,9 @@ def get_sales_data() -> Dict[str, Any]:
     if valid_sales is not None and not valid_sales.empty and "order_total_amount" in valid_sales.columns:
         valid_sales = clean_dtypes(valid_sales)
         valid_sales["order_total_amount"] = pd.to_numeric(valid_sales["order_total_amount"], errors="coerce").fillna(0)
-        total_revenue = float(sale_number(valid_sales))
-        total_orders = int(valid_sales["order_id_stage"].nunique()) if "order_id_stage" in valid_sales.columns else int(len(valid_sales))
-        average_basket = round(total_revenue / total_orders, 2) if total_orders > 0 else 0.0
+        total_revenue = calculate_total_revenue(valid_sales)
+        total_orders = calculate_total_orders(valid_sales)
+        average_basket = calculate_platform_aov(valid_sales)
 
         growth_pct = 0.0
         period_start = ""
@@ -738,31 +761,91 @@ def get_products_data() -> Dict[str, Any]:
     }
 
 def get_forecast_data() -> Dict[str, Any]:
-    df = execute_query(
-        "SELECT order_date, order_total_amount FROM orders"
-    )
+    valid_sales = _load_valid_sales()
     history = []
-    if df is not None and not df.empty and "order_date" in df.columns:
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
-        df["order_total_amount"] = pd.to_numeric(df["order_total_amount"], errors="coerce").fillna(0)
-        df["period"] = df["order_date"].dt.to_period("M").astype(str)
-        monthly = df.groupby("period")["order_total_amount"].sum().sort_index()
+    forecast_points = []
+    expected_growth_pct = None
+    forecast_status = "pending_approval"
+    model_name = "ARIMA(1,1,1)"
+    reason = "Dynamic ARIMA(1,1,1) time-series model projection with confidence bounds."
+
+    if valid_sales is not None and not valid_sales.empty and "order_date" in valid_sales.columns:
+        valid_sales = valid_sales.copy()
+        valid_sales["order_date"] = pd.to_datetime(valid_sales["order_date"], errors="coerce")
+        valid_sales = valid_sales.dropna(subset=["order_date"])
+        valid_sales["order_total_amount"] = pd.to_numeric(valid_sales["order_total_amount"], errors="coerce").fillna(0)
+        valid_sales["period"] = valid_sales["order_date"].dt.to_period("M").astype(str)
+        monthly = valid_sales.groupby("period")["order_total_amount"].sum().sort_index()
+
         for period, rev in monthly.items():
-            history.append({"period": str(period), "revenue": round(float(rev) / 1_000_000, 1)})
+            history.append({
+                "period": str(period),
+                "revenue": round(float(rev) / 1_000_000, 2),
+                "revenue_raw": round(float(rev), 2),
+            })
+
+        if len(monthly) >= 3:
+            try:
+                from statsmodels.tsa.arima.model import ARIMA
+                values = monthly.values.astype(float)
+                order = (1, 1, 1) if len(values) >= 5 else (1, 1, 0)
+                model = ARIMA(values, order=order)
+                fitted = model.fit()
+                steps = 3
+                forecast_res = fitted.get_forecast(steps=steps)
+                fc_values = forecast_res.predicted_mean
+                conf_int = forecast_res.conf_int()
+
+                last_period_str = str(monthly.index[-1])
+                last_dt = pd.to_datetime(last_period_str + "-01")
+
+                for i in range(steps):
+                    next_dt = last_dt + pd.DateOffset(months=i+1)
+                    p_str = next_dt.strftime("%Y-%m")
+                    pred_rev = max(0.0, float(fc_values[i]))
+                    lower_b = max(0.0, float(conf_int[i, 0])) if conf_int is not None and len(conf_int) > i else pred_rev * 0.9
+                    upper_b = max(pred_rev, float(conf_int[i, 1])) if conf_int is not None and len(conf_int) > i else pred_rev * 1.1
+
+                    forecast_points.append({
+                        "period": p_str,
+                        "revenue": round(pred_rev / 1_000_000, 2),
+                        "revenue_raw": round(pred_rev, 2),
+                        "lower_bound": round(lower_b / 1_000_000, 2),
+                        "upper_bound": round(upper_b / 1_000_000, 2),
+                    })
+
+                last_actual = float(values[-1])
+                first_fc = float(fc_values[0])
+                if last_actual > 0:
+                    expected_growth_pct = round(((first_fc - last_actual) / last_actual) * 100.0, 1)
+                forecast_status = "active"
+                model_name = f"ARIMA{order}"
+            except Exception as exc:
+                logger.warning(f"ARIMA forecast fitting failed: {exc}")
+                reason = f"ARIMA model fitting unavailable ({exc}). Forecast marked as pending."
+                forecast_status = "unavailable"
+        else:
+            reason = "Minimum 3 historical monthly periods required for dynamic ARIMA forecasting."
+            forecast_status = "insufficient_data"
 
     return {
         "status": "success",
         "data": {
-            "reason": "ARIMA(1,1,1) time-series model projection with 95% confidence bounds. Pending approval.",
-            "expected_growth_pct": 9.0,
-            "history": history if history else [],
-            "forecast": [],
+            "model_name": model_name,
+            "reason": reason,
+            "forecast_status": forecast_status,
+            "expected_growth_pct": expected_growth_pct,
+            "history": history,
+            "forecast": forecast_points,
+            "scope": {
+                "historical_periods": len(history),
+                "forecast_steps": len(forecast_points),
+            },
         },
     }
 
 def get_decisions_data() -> Dict[str, Any]:
     alerts = []
-
     df_cust = execute_query("SELECT customer_id_stage, last_order_date, total_amount FROM customers")
     if df_cust is not None and not df_cust.empty and "last_order_date" in df_cust.columns:
         df_cust["last_order_date"] = pd.to_datetime(df_cust["last_order_date"], errors="coerce")
@@ -779,9 +862,7 @@ def get_decisions_data() -> Dict[str, Any]:
                 "count": risk_count,
             })
 
-    df_neg = execute_query("SELECT COUNT(*) AS cnt FROM transactions WHERE has_negative_price = 1")
-    if df_neg is not None and not df_neg.empty:
-        neg_count = int(df_neg.iloc[0]["cnt"])
+    df_neg = execute_query("SELECT COUNT(*) AS cnt FROM transactions WHERE has_negative_price IS TRUE")
         if neg_count > 0:
             alerts.append({
                 "code": "NEGATIVE_PRICE_ANOMALY",

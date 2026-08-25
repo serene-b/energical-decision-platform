@@ -94,7 +94,7 @@ Configure these in a `.env` file in the project root or within `backend/.env`:
 | `CORS_ORIGINS` | `http://localhost,http://localhost:5173,http://127.0.0.1:5173` | Allowed CORS origins |
 | `GROQ_API_KEY` | `""` | Groq API key for the AI assistant |
 | `ASSISTANT_PROVIDER_URL` | `https://api.groq.com/openai/v1` | AI Provider base URL |
-| `ASSISTANT_MODEL` | `llama-3.3-70b-versatile` | AI model identifier |
+| `ASSISTANT_MODEL` | `openai/gpt-oss-120b` | AI model identifier |
 | `GA4_PROPERTY_ID` | `""` | Google Analytics 4 property ID (optional) |
 
 ---

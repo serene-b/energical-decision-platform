@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -17,6 +17,8 @@ class AssistantContextPayload(BaseModel):
     selection_type: Optional[str] = "dashboard_selection"
     selection: Optional[str] = "Current View"
     approved_metrics: Optional[dict] = None
+    interface_language: Optional[str] = None
+    scope: Optional[str] = "entire_platform"
 
 class AssistantQueryPayload(BaseModel):
     query: Optional[str] = None
@@ -25,6 +27,10 @@ class AssistantQueryPayload(BaseModel):
     selection_type: Optional[str] = "dashboard_selection"
     selection: Optional[str] = "Current View"
     approved_metrics: Optional[dict] = None
+    interface_language: Optional[str] = None
+    language: Optional[str] = None
+    conversation: Optional[List[dict]] = None
+    scope: Optional[str] = "entire_platform"
 
 @router.post("/context")
 async def assistant_context(payload: AssistantContextPayload):

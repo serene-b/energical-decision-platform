@@ -4,7 +4,12 @@ import pandas as pd
 from statsmodels.tsa.stattools import adfuller
 
 
-VALID_SALES_STATUSES = ["Terminée", "Partiellement remboursée"]
+try:
+    from .contract import REALIZED_SALES_STATUSES
+except ImportError:
+    from contract import REALIZED_SALES_STATUSES
+
+VALID_SALES_STATUSES = REALIZED_SALES_STATUSES
 
 
 def sale_number(valid_sales):

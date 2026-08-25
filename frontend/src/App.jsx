@@ -290,31 +290,39 @@ function App() {
         onClose={() => setAssistantContext(null)}
       />
 
-      <button
-        type="button"
-        className="assistant-launcher"
-        aria-label={language === "fr" ? "Ouvrir l’assistant IA" : "Open AI assistant"}
-        title={language === "fr" ? "Assistant IA Energical" : "Energical AI Assistant"}
-        onClick={() => handleAskAI(insight?.aiContext || insight || {
-          page: activeTabId,
-          selection_type: activeTabId === "upload" && latestPipelineRun?.result ? "pipeline_summary" : "current_page",
-          selection: activeTabId === "upload" && latestPipelineRun?.result ? "Latest processing result" : activeTab.title[language],
-          approved_metrics: activeTabId === "upload" && latestPipelineRun?.result ? {
-            total_files: latestPipelineRun.result.total_files,
-            total_rows_raw: latestPipelineRun.result.total_rows_raw,
-            total_rows_cleaned: latestPipelineRun.result.total_rows_cleaned,
-            total_missing_values: latestPipelineRun.result.total_missing_values,
-            duplicate_rows_removed: latestPipelineRun.result.total_duplicate_rows_removed,
-          } : {},
-        })}
-      >
-        <span className="assistant-launcher-icon">
-          <Bot size={17} strokeWidth={2} />
-        </span>
-        <span className="assistant-launcher-label">
-          {language === "fr" ? "Assistant IA" : "Ask AI"}
-        </span>
-      </button>
+      {!assistantContext && (
+        <button
+          type="button"
+          className="assistant-launcher"
+          aria-haspopup="dialog"
+          aria-expanded={false}
+          aria-label={language === "fr" ? "Ouvrir l’assistant IA" : language === "ar" ? "فتح المساعد الذكي" : "Open AI assistant"}
+          title={language === "fr" ? "Assistant IA Energical" : language === "ar" ? "مساعد Energical الذكي" : "Energical AI Assistant"}
+          onClick={() => handleAskAI(insight?.aiContext || insight || {
+            page: activeTabId,
+            selection_type: activeTabId === "upload" && latestPipelineRun?.result ? "pipeline_summary" : "current_page",
+            selection: activeTabId === "upload" && latestPipelineRun?.result ? "Latest processing result" : activeTab.title[language],
+            approved_metrics: activeTabId === "upload" && latestPipelineRun?.result ? {
+              total_files: latestPipelineRun.result.total_files,
+              total_rows_raw: latestPipelineRun.result.total_rows_raw,
+              total_rows_cleaned: latestPipelineRun.result.total_rows_cleaned,
+              total_missing_values: latestPipelineRun.result.total_missing_values,
+              duplicate_rows_removed: latestPipelineRun.result.total_duplicate_rows_removed,
+            } : {},
+          })}
+        >
+          <span className="assistant-launcher-icon">
+            <Bot size={21} strokeWidth={2} />
+          </span>
+          <span className="assistant-launcher-status" aria-hidden="true" />
+          <span className="assistant-launcher-tooltip">
+            {language === "fr" ? "Assistant IA Energical" : language === "ar" ? "مساعد Energical الذكي" : "Energical AI"}
+          </span>
+          <span className="assistant-launcher-label">
+            {language === "fr" ? "Assistant IA" : language === "ar" ? "المساعد الذكي" : "Ask AI"}
+          </span>
+        </button>
+      )}
 
       <CommandPalette
         key={`${searchOpen ? "open" : "closed"}-${searchQuery}`}
