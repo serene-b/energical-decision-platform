@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Bot,
@@ -74,13 +75,14 @@ function DrawerFrame({ children, className = "", onClose, closeLabel }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className={`context-drawer-backdrop ${className}`} onMouseDown={onClose}>
       <aside className="context-drawer" role="dialog" aria-modal="true" aria-label="Energical AI" onMouseDown={(event) => event.stopPropagation()}>
         <button type="button" className="context-drawer-close icon-button" onClick={onClose} aria-label={closeLabel}><X size={18} strokeWidth={1.8} /></button>
         {children}
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -95,14 +97,58 @@ function ContextualInsightDrawer({ insight, language = "en", onClose, onAskAI, o
 
   return (
     <DrawerFrame onClose={onClose} closeLabel={text.close}>
-      <div className="context-drawer-topline"><span className="context-drawer-icon context-drawer-icon--orange"><Sparkles size={17} /></span><p className="panel-eyebrow">{text.insightEyebrow}</p></div>
+      <div className="context-drawer-topline">
+        <span className="context-drawer-icon context-drawer-icon--orange">
+          <Sparkles size={17} />
+        </span>
+        <p className="panel-eyebrow">{insight.eyebrow || text.insightEyebrow}</p>
+      </div>
       <h2>{insight.title}</h2>
-      <p className="context-drawer-description">{insight.description}</p>
-      <div className="context-metric-card"><span>{insight.metric_label}</span><strong>{metric}</strong><small>{insight.selection_label || insight.selection}</small></div>
-      <div className="context-drawer-section"><p className="context-drawer-section-label">{text.investigate}</p><div className="context-suggestion-list">
-        {(insight.suggestions || []).map((suggestion) => <button type="button" className="context-suggestion" key={suggestion.id} onClick={() => onNavigate(suggestion.tabId, suggestion.context)}><span>{suggestion.label[language]}</span><ArrowRight size={15} /></button>)}
-      </div></div>
-      <button type="button" className="context-ai-button" onClick={() => onAskAI(insight.aiContext || insight)}><Bot size={17} />{text.askAi}</button>
+      <p className="context-drawer-description">{insight.description || insight.subtitle}</p>
+
+      <div className="context-metric-card">
+        <span>{insight.metric_label || (language === "fr" ? "Indicateur Principal" : "Primary Indicator")}</span>
+        <strong>{metric}</strong>
+        <small>{insight.selection_label || insight.selection || ""}</small>
+      </div>
+
+      {insight.details && Object.keys(insight.details).length > 0 && (
+        <div className="context-drawer-section">
+          <p className="context-drawer-section-label">{language === "fr" ? "Attributs & Détails" : "Entity Details"}</p>
+          <div className="context-details-grid">
+            {Object.entries(insight.details).map(([key, val]) => (
+              <div key={key} className="context-detail-card">
+                <span className="context-detail-label">{key}</span>
+                <strong className="context-detail-value">{String(val)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="context-drawer-section">
+        <p className="context-drawer-section-label">{text.investigate}</p>
+        <div className="context-suggestion-list">
+          {(insight.suggestions || []).map((suggestion) => (
+            <button
+              type="button"
+              className="context-suggestion"
+              key={suggestion.id}
+              onClick={() => {
+                onClose();
+                onNavigate(suggestion.tabId, suggestion.context);
+              }}
+            >
+              <span>{suggestion.label[language] || suggestion.label.en || suggestion.label}</span>
+              <ArrowRight size={15} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button type="button" className="context-ai-button" onClick={() => onAskAI(insight.aiContext || insight)}>
+        <Bot size={17} />{text.askAi}
+      </button>
     </DrawerFrame>
   );
 }
@@ -132,6 +178,7 @@ function ContextualAssistantDrawer({ context, language = "en", onClose }) {
         selection_type: context.selection_type,
         selection: context.selection,
         approved_metrics: context.approved_metrics || {},
+        query: cleanQuestion,
         question: cleanQuestion,
       });
       if (response?.answer) {
@@ -141,6 +188,15 @@ function ContextualAssistantDrawer({ context, language = "en", onClose }) {
       setBoundaryError(error);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (question.trim() && !isSending) {
+        handleSubmit(event);
+      }
     }
   };
 
@@ -170,7 +226,16 @@ function ContextualAssistantDrawer({ context, language = "en", onClose }) {
       {!messages.length && <div className="assistant-suggestions"><span>{text.suggestions}</span>{prompts.map((prompt) => <button type="button" key={prompt} onClick={() => setQuestion(prompt)}>{prompt}<ArrowRight size={14} /></button>)}</div>}
 
       <form className="assistant-composer" onSubmit={handleSubmit}>
-        <label><span className="sr-only">{text.placeholder}</span><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={text.placeholder} rows="3" /></label>
+        <label>
+          <span className="sr-only">{text.placeholder}</span>
+          <textarea
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={text.placeholder}
+            rows="3"
+          />
+        </label>
         <button type="submit" disabled={!question.trim() || isSending} aria-label={text.send}><Send size={17} /></button>
       </form>
     </DrawerFrame>

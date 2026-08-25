@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   BellRing,
+  Bot,
   Boxes,
   LayoutDashboard,
   MapPinned,
@@ -13,11 +14,13 @@ import {
 import Sidebar from "./components/Layout/Sidebar.jsx";
 import Topbar from "./components/Layout/Topbar.jsx";
 import Footer from "./components/Layout/Footer.jsx";
+import { getPipelineState } from "./api/pipeline.js";
 import CommandPalette from "./components/Common/CommandPalette.jsx";
 import {
   ContextualAssistantDrawer,
   ContextualInsightDrawer,
 } from "./components/Common/ContextualAssistant.jsx";
+import IntegrationSettingsModal from "./components/Common/IntegrationSettingsModal.jsx";
 
 import Overview from "./Pages/Overview.jsx";
 import SalesIntelligence from "./Pages/SalesIntelligence.jsx";
@@ -42,8 +45,8 @@ const tabs = [
     id: "overview",
     title: { en: "Overview", fr: "Vue d’ensemble" },
     description: {
-      en: "Monitor approved revenue, order, customer, and data-quality signals from the latest processed run.",
-      fr: "Suivez le chiffre d’affaires, les clients à risque, les ventes et les prévisions à trois mois.",
+      en: "Explore realized revenue, customers, Wilaya concentration, products, and verified business alerts.",
+      fr: "Explorez le revenu réalisé, les clients, la concentration par wilaya, les produits et les alertes métier vérifiées.",
     },
     icon: LayoutDashboard,
   },
@@ -119,6 +122,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState("en");
   const [latestPipelineRun, setLatestPipelineRun] = useState(null);
+  const [databaseState, setDatabaseState] = useState(null);
+  const [databaseStateError, setDatabaseStateError] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const storedTheme = window.localStorage.getItem("energical-theme");
@@ -133,11 +138,38 @@ function App() {
   });
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [insight, setInsight] = useState(null);
   const [assistantContext, setAssistantContext] = useState(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) || tabs[0];
   const ActivePage = pageComponents[activeTabId] || Overview;
+
+  const refreshDatabaseState = useCallback(() => {
+    return getPipelineState()
+      .then((state) => {
+        setDatabaseState(state);
+        setDatabaseStateError(false);
+        return state;
+      })
+      .catch(() => {
+        setDatabaseStateError(true);
+        return null;
+      });
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getPipelineState({ signal: controller.signal })
+      .then((state) => {
+        setDatabaseState(state);
+        setDatabaseStateError(false);
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") setDatabaseStateError(true);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     try {
@@ -161,6 +193,11 @@ function App() {
       setInsight(context);
     }
   }, []);
+
+  const handlePipelineComplete = useCallback((run) => {
+    setLatestPipelineRun(run);
+    void refreshDatabaseState();
+  }, [refreshDatabaseState]);
 
   const handleOpenSearch = useCallback((query = "") => {
     setSearchQuery(query);
@@ -202,21 +239,24 @@ function App() {
         language={language}
       />
 
-      <div className="main-content">
+      <div className={`main-content${activeTabId === "overview" ? " main-content--overview" : ""}`}>
         <Topbar
           activeTab={activeTab}
+          adaptive={activeTabId === "overview"}
           language={language}
           onToggleLanguage={toggleLanguage}
-          latestPipelineRun={latestPipelineRun}
+          databaseState={databaseState}
+          databaseStateError={databaseStateError}
           theme={theme}
           onThemeChange={setTheme}
           onOpenSearch={handleOpenSearch}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         <div className="page-transition" key={activeTabId}>
           <ActivePage
             language={language}
-            onPipelineComplete={setLatestPipelineRun}
+            onPipelineComplete={handlePipelineComplete}
             onNavigate={handleNavigate}
             onInsight={handleInsight}
             onAskAI={handleAskAI}
@@ -225,6 +265,16 @@ function App() {
 
         <Footer />
       </div>
+
+      <IntegrationSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        language={language}
+        onSaved={() => {
+          setSettingsOpen(false);
+          void refreshDatabaseState();
+        }}
+      />
 
       <ContextualInsightDrawer
         insight={insight}
@@ -244,6 +294,7 @@ function App() {
         type="button"
         className="assistant-launcher"
         aria-label={language === "fr" ? "Ouvrir l’assistant IA" : "Open AI assistant"}
+        title={language === "fr" ? "Assistant IA Energical" : "Energical AI Assistant"}
         onClick={() => handleAskAI(insight?.aiContext || insight || {
           page: activeTabId,
           selection_type: activeTabId === "upload" && latestPipelineRun?.result ? "pipeline_summary" : "current_page",
@@ -257,8 +308,12 @@ function App() {
           } : {},
         })}
       >
-        <span className="assistant-launcher-pulse" aria-hidden="true" />
-        <span aria-hidden="true">✦</span>
+        <span className="assistant-launcher-icon">
+          <Bot size={17} strokeWidth={2} />
+        </span>
+        <span className="assistant-launcher-label">
+          {language === "fr" ? "Assistant IA" : "Ask AI"}
+        </span>
       </button>
 
       <CommandPalette

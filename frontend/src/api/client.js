@@ -55,6 +55,44 @@ export async function request(path, options = {}) {
   return payload;
 }
 
+export async function requestBlob(path, options = {}) {
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, options);
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
+    if (import.meta.env.DEV) {
+      console.error("[Energical API] binary request could not reach the backend", { path, error });
+    }
+    throw new ApiClientError(
+      "The API could not be reached. Start the backend and try again.",
+      { code: "network_error" },
+    );
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const errorPayload = payload?.error;
+    const fallbackMessage = response.status >= 500
+      ? `The backend returned an error (HTTP ${response.status}).`
+      : `The API rejected the request (HTTP ${response.status}).`;
+    throw new ApiClientError(
+      errorPayload?.message || fallbackMessage,
+      {
+        code: errorPayload?.code || "request_failed",
+        details: errorPayload?.details || [],
+        status: response.status,
+      },
+    );
+  }
+
+  return {
+    blob: await response.blob(),
+    contentDisposition: response.headers.get("content-disposition") || "",
+  };
+}
+
 export function getApiBaseUrl() {
   return API_BASE_URL;
 }

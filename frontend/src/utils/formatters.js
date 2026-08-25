@@ -40,6 +40,23 @@ export function formatDateRange(min, max, language = "en") {
   return `${formatDateTime(min, language)} – ${formatDateTime(max, language)}`;
 }
 
+export function formatDateOnly(value, language = "en") {
+  if (!value) {
+    return "-";
+  }
+
+  const match = String(value).slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return "-";
+  }
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return new Intl.DateTimeFormat(
+    language === "fr" ? "fr-DZ" : "en-GB",
+    { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" },
+  ).format(date);
+}
+
 export function formatFileSize(bytes, language = "en") {
   if (!Number.isFinite(bytes)) {
     return "—";
