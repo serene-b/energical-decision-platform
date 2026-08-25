@@ -1,111 +1,159 @@
-from fastapi import Depends, FastAPI, HTTPException, Request
+import os
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse
 
-from analytics import router as analytics_router
-from database import get_db
-from models import Customer
-from pipeline import (
-    build_pipeline_run,
-    parse_dataset_selections,
-    parse_multipart,
-    recent_run_summary,
+try:
+    from .core.config import ORIGINS, API_TITLE, API_VERSION
+    from .core.database import init_db
+    from .routers import (
+        health_router,
+        pipeline_router,
+        analytics_router,
+        ga4_router,
+        assistant_router,
+    )
+except (ImportError, ValueError):
+    from core.config import ORIGINS, API_TITLE, API_VERSION
+    from core.database import init_db
+    from routers import (
+        health_router,
+        pipeline_router,
+        analytics_router,
+        ga4_router,
+        assistant_router,
+    )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("energical.api")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Initializing database tables...")
+    init_db()
+    yield
+
+app = FastAPI(
+    title=API_TITLE,
+    version=API_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
-from persistence import PersistenceValidationError, persist_prepared_files
 
-
-app = FastAPI(title="Energical Decision Platform API")
-app.include_router(analytics_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=ORIGINS if ORIGINS else ["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ponytail: process-local history; move runs to PostgreSQL when restart-safe history is required.
-PIPELINE_RUNS = {}
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
-
-@app.get("/")
-def read_root():
-    return {"message": "API Energical fonctionne correctement"}
-
-
-@app.get("/api/v1/health")
-def api_health():
-    return {"status": "ok"}
-
-
-@app.post("/api/v1/pipeline/runs")
-async def create_pipeline_run(request: Request, db: Session = Depends(get_db)):
-    fields, uploads = parse_multipart(
-        request.headers.get("content-type", ""),
-        await request.body(),
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": "http_error",
+                "message": exc.detail,
+                "status": exc.status_code,
+            }
+        },
     )
-    selections = parse_dataset_selections(fields.get("dataset_types"))
-    pipeline_run, prepared_files = build_pipeline_run(uploads, selections)
-    try:
-        import_summary = persist_prepared_files(db, prepared_files)
-        db.commit()
-    except PersistenceValidationError as error:
-        db.rollback()
-        raise HTTPException(422, str(error)) from error
-    except IntegrityError as error:
-        db.rollback()
-        raise HTTPException(409, "A referenced customer, product, or order is missing from PostgreSQL") from error
-    except SQLAlchemyError as error:
-        db.rollback()
-        raise HTTPException(500, "PostgreSQL could not save the uploaded batch") from error
-    pipeline_run["result"]["persistence"] = "postgres"
-    pipeline_run["result"]["import_summary"] = import_summary
-    PIPELINE_RUNS[pipeline_run["run_id"]] = pipeline_run
-    return pipeline_run
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error processing {request.url}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": "internal_error",
+                "message": "An internal server error occurred while processing the request.",
+                "status": 500,
+            }
+        },
+    )
 
-@app.get("/api/v1/pipeline/runs")
-def list_pipeline_runs(limit: int = 20):
-    bounded_limit = max(0, min(limit, 100))
-    if not bounded_limit:
-        return []
-    runs = list(PIPELINE_RUNS.values())[-bounded_limit:]
-    return [recent_run_summary(run) for run in reversed(runs)]
+app.include_router(health_router)
+app.include_router(pipeline_router)
+app.include_router(analytics_router)
+app.include_router(ga4_router)
+app.include_router(assistant_router)
 
-
-@app.get("/api/v1/pipeline/runs/{run_id}")
-def get_pipeline_run(run_id: str):
-    if run_id not in PIPELINE_RUNS:
-        raise HTTPException(404, "Pipeline run not found")
-    return PIPELINE_RUNS[run_id]
-
-
-@app.get("/api/v1/pipeline/state")
-def pipeline_state(db: Session = Depends(get_db)):
-    state = db.execute(text("""
-        SELECT
-            EXISTS (
-                SELECT 1 FROM customers
-                UNION ALL SELECT 1 FROM catalogue
-                UNION ALL SELECT 1 FROM orders
-                UNION ALL SELECT 1 FROM transactions
-            ) AS data_available,
-            (SELECT MAX(order_date)::date FROM orders) AS latest_business_date
-    """)).mappings().one()
-    return {
-        "data_available": state["data_available"],
-        "persistence": "postgres",
-        "latest_business_date": state["latest_business_date"],
-    }
-
-
-@app.get("/test-db")
-def test_db_connection(db: Session = Depends(get_db)):
-    query_result = db.execute(text("SELECT 1"))
-    return {"database_connection": "OK", "result": query_result.scalar()}
-
-
-@app.get("/customers/count")
-def count_customers(db: Session = Depends(get_db)):
-    return {"total_customers": db.query(Customer).count()}
+try:
+    from .routers.health import health_check
+    from .routers.pipeline import (
+        get_pipeline_state,
+        upload_pipeline_files,
+        list_recent_runs,
+        get_run_details,
+        download_run_report,
+        download_cleaned_dataset,
+        download_cleaned_zip,
+    )
+    from .routers.analytics import (
+        analytics_overview,
+        analytics_revenue_trend,
+        analytics_sales,
+        analytics_clients,
+        analytics_customers,
+        analytics_wilayas,
+        analytics_products,
+        analytics_forecast,
+        analytics_decisions,
+        analytics_overview_alerts,
+        analytics_overview_product,
+        search_endpoint,
+    )
+    from .routers.ga4 import (
+        get_ga4_integration,
+        save_ga4_integration,
+        test_ga4_integration,
+        delete_ga4_integration,
+    )
+    from .routers.assistant import assistant_context, assistant_query
+except (ImportError, ValueError):
+    from routers.health import health_check
+    from routers.pipeline import (
+        get_pipeline_state,
+        upload_pipeline_files,
+        list_recent_runs,
+        get_run_details,
+        download_run_report,
+        download_cleaned_dataset,
+        download_cleaned_zip,
+    )
+    from routers.analytics import (
+        analytics_overview,
+        analytics_revenue_trend,
+        analytics_sales,
+        analytics_clients,
+        analytics_customers,
+        analytics_wilayas,
+        analytics_products,
+        analytics_forecast,
+        analytics_decisions,
+        analytics_overview_alerts,
+        analytics_overview_product,
+        search_endpoint,
+    )
+    from routers.ga4 import (
+        get_ga4_integration,
+        save_ga4_integration,
+        test_ga4_integration,
+        delete_ga4_integration,
+    )
+    from routers.assistant import assistant_context, assistant_query

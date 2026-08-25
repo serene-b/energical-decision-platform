@@ -1,4 +1,4 @@
-import { CornerDownLeft, Search } from "lucide-react";
+import { Key, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import energicalLogo from "../../assets/energical-logo.png";
@@ -60,6 +60,7 @@ function Topbar({
   theme,
   onThemeChange,
   onOpenSearch,
+  onOpenSettings,
 }) {
   const text = topbarTranslations[language] || topbarTranslations.en;
   const [displayMode, setDisplayMode] = useState("full");
@@ -141,12 +142,6 @@ function Topbar({
       ? databaseState?.persistence === "postgres" ? text.persistence : text.databaseConnected
       : text.noUpload;
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const query = new FormData(event.currentTarget).get("platform-search");
-    onOpenSearch(query?.toString().trim() || "");
-  };
-
   return (
     <header
       className={`eidp-topbar${adaptive ? " eidp-topbar--adaptive" : ""} eidp-topbar--${effectiveDisplayMode}`}
@@ -165,36 +160,47 @@ function Topbar({
         <div className="eidp-page-context">
           <span className="eidp-page-context-kicker">{text.workspace} / {activeTab.id}</span>
           <h1>{activeTab.title[language]}</h1>
-          <p>{activeTab.description[language]}</p>
         </div>
       </div>
 
-      <form className="eidp-topbar-search" onSubmit={handleSubmit}>
-        <label className="eidp-search">
-          <Search size={17} strokeWidth={1.8} aria-hidden="true" />
-          <span className="sr-only">{text.search}</span>
-          <input name="platform-search" type="search" placeholder={text.searchPlaceholder} />
-          <kbd>{text.searchHint}</kbd>
-          <button type="submit" aria-label={text.search}>
-            <CornerDownLeft size={15} strokeWidth={1.9} aria-hidden="true" />
-          </button>
-        </label>
-      </form>
+      <div className="eidp-topbar-search">
+        <button
+          type="button"
+          className="eidp-search"
+          onClick={() => onOpenSearch("")}
+          aria-label={text.search}
+        >
+          <Search size={15} strokeWidth={2} aria-hidden="true" />
+          <span className="eidp-search-placeholder">{text.searchPlaceholder}</span>
+        </button>
+      </div>
 
       <div className="eidp-topbar-meta">
+        <div className={`eidp-update-status eidp-update-status--${statusKey}`} title={statusMeta ? `${statusLabel} (${statusMeta})` : statusLabel}>
+          <span className="eidp-status-dot" aria-hidden="true" />
+          <div className="eidp-status-text">
+            <span className="eidp-update-status-label">{text.dataStatus}</span>
+            <strong>{statusLabel}</strong>
+          </div>
+        </div>
+
         <div className="topbar-preferences">
+          <button
+            type="button"
+            className="icon-button topbar-preferences-button"
+            onClick={onOpenSettings}
+            title={language === "fr" ? "Intégrations & Paramètres GA4" : "GA4 & Integrations Settings"}
+            aria-label={language === "fr" ? "Paramètres" : "Settings"}
+          >
+            <Key size={15} strokeWidth={2} />
+          </button>
+          <span className="topbar-preferences-divider" aria-hidden="true" />
           <ThemeSwitcher language={language} theme={theme} onThemeChange={onThemeChange} />
           <span className="topbar-preferences-divider" aria-hidden="true" />
           <div className="compact-segmented-control compact-language-control" role="group" aria-label={text.languageControl}>
             <button type="button" aria-pressed={language === "en"} className={language === "en" ? "is-active" : ""} onClick={() => language !== "en" && onToggleLanguage()}>EN</button>
             <button type="button" aria-pressed={language === "fr"} className={language === "fr" ? "is-active" : ""} onClick={() => language !== "fr" && onToggleLanguage()}>FR</button>
           </div>
-        </div>
-
-        <div className={`eidp-update-status eidp-update-status--${statusKey}`}>
-          <span className="eidp-update-status-label">{text.dataStatus}</span>
-          <strong><i aria-hidden="true" />{statusLabel}</strong>
-          <small>{statusMeta}</small>
         </div>
       </div>
     </header>

@@ -1,19 +1,30 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
-import os
+try:
+    from .core.database import (
+        Base,
+        SessionLocal,
+        engine,
+        get_db,
+        check_db_connection,
+        init_db,
+        DATABASE_URL,
+    )
+except (ImportError, ValueError):
+    from core.database import (
+        Base,
+        SessionLocal,
+        engine,
+        get_db,
+        check_db_connection,
+        init_db,
+        DATABASE_URL,
+    )
 
-load_dotenv()
-
-DATABASE_URL = "postgresql://postgres:sirine1636@localhost:5433/energical_platform"
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+__all__ = [
+    "Base",
+    "SessionLocal",
+    "engine",
+    "get_db",
+    "check_db_connection",
+    "init_db",
+    "DATABASE_URL",
+]

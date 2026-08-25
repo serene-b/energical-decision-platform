@@ -18,56 +18,56 @@ const CARD_TRANSITION_MS = 190;
 
 const labels = {
   en: {
-    exploration: "Geographic exploration",
+    exploration: "Geographic Exploration",
     select: "Select a wilaya",
-    boundaries: "58 geographic boundaries",
-    fixtures: "Processed aggregate metrics",
-    loading: "Loading the geographic boundary map…",
+    boundaries: "58 Algerian Wilayas",
+    fixtures: "Live Order Metrics",
+    loading: "Loading geographic map…",
     loadError: "The geographic map could not be loaded.",
-    overview: "Regional business overview",
-    synthetic: "Processed aggregate",
-    boundaryOnly: "Geographic boundary · metrics not connected",
+    overview: "Wilaya Summary",
+    synthetic: "Active Region",
+    boundaryOnly: "Geographic Boundary · No Orders",
     revenue: "Revenue",
     clients: "Clients",
     orders: "Orders",
     growth: "Growth",
-    share: "Market share",
-    explore: "Explore wilaya",
-    askAi: "Ask AI",
-    all: "Algeria",
+    share: "Market Share",
+    explore: "Explore Wilaya",
+    askAi: "Ask Assistant",
+    all: "All Algeria",
     selected: "Selected",
-    available: "Aggregate metric available",
+    available: "Active Store Sales",
     source: "Boundary source: SimpleMaps · CC BY 4.0",
-    zoomIn: "Zoom in",
-    zoomOut: "Zoom out",
-    resetView: "Reset map view",
-    mapNavigation: "Map navigation",
+    zoomIn: "Zoom In",
+    zoomOut: "Zoom Out",
+    resetView: "Reset View",
+    mapNavigation: "Map Controls",
   },
   fr: {
-    exploration: "Exploration géographique",
+    exploration: "Exploration Géographique",
     select: "Sélectionnez une wilaya",
-    boundaries: "58 limites géographiques",
-    fixtures: "Métriques agrégées traitées",
-    loading: "Chargement de la carte géographique…",
+    boundaries: "58 Wilayas d’Algérie",
+    fixtures: "Métriques des Ventes",
+    loading: "Chargement de la carte…",
     loadError: "La carte géographique n’a pas pu être chargée.",
-    overview: "Vue d’ensemble régionale",
-    synthetic: "Agrégat traité",
-    boundaryOnly: "Limite géographique · métriques non connectées",
-    revenue: "Revenu",
+    overview: "Synthèse Régionale",
+    synthetic: "Région Active",
+    boundaryOnly: "Limite Géographique · Aucune Commande",
+    revenue: "Chiffre d’Affaires",
     clients: "Clients",
     orders: "Commandes",
     growth: "Croissance",
-    share: "Part de marché",
-    explore: "Explorer la wilaya",
+    share: "Part Régionale",
+    explore: "Explorer la Wilaya",
     askAi: "Demander à l’IA",
-    all: "Algérie",
+    all: "Toute l’Algérie",
     selected: "Sélectionnée",
-    available: "Métrique agrégée disponible",
+    available: "Ventes Actives",
     source: "Source des limites : SimpleMaps · CC BY 4.0",
-    zoomIn: "Zoom avant",
-    zoomOut: "Zoom arrière",
-    resetView: "Réinitialiser la vue",
-    mapNavigation: "Navigation de la carte",
+    zoomIn: "Zoom Avant",
+    zoomOut: "Zoom Arrière",
+    resetView: "Réinitialiser",
+    mapNavigation: "Contrôles Carte",
   },
 };
 
@@ -160,10 +160,19 @@ function AlgeriaMap({
           : `${name}, ${text.boundaryOnly}`,
       );
       path.classList.toggle("has-metrics", Boolean(metrics));
-      path.classList.toggle("is-selected", selectedWilayaId === code);
       path.style.setProperty("--region-intensity", `${intensity}%`);
     });
-  }, [language, metricLookup, selectedWilayaId, svgMarkup, text.boundaryOnly, text.clients]);
+  }, [language, metricLookup, svgMarkup, text.boundaryOnly, text.clients]);
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    svgRef.current.querySelectorAll("#features path[id^='DZ'].is-selected").forEach((el) => {
+      if (el.id !== `DZ${selectedWilayaId}`) el.classList.remove("is-selected");
+    });
+    if (selectedWilayaId) {
+      svgRef.current.querySelector(`#features path[id="DZ${selectedWilayaId}"]`)?.classList.add("is-selected");
+    }
+  }, [selectedWilayaId]);
 
   useEffect(() => () => {
     window.clearTimeout(hoverIntentTimerRef.current);
@@ -628,7 +637,13 @@ function AlgeriaMap({
             )}
 
             <div className="wilaya-hover-actions">
-              <button type="button" onClick={() => onSelect(hovered.id, hovered.name)}>
+              <button
+                type="button"
+                onClick={() => {
+                  dismissHover();
+                  onSelect(hovered.id, hovered.name);
+                }}
+              >
                 {text.explore}<ArrowUpRight size={14} aria-hidden="true" />
               </button>
               <button type="button" onClick={() => handleAskAI()}>

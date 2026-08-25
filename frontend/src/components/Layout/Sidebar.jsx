@@ -1,3 +1,4 @@
+import { Menu, X } from "lucide-react";
 import energicalLogo from "../../assets/energical-logo.png";
 
 function Sidebar({
@@ -29,27 +30,9 @@ function Sidebar({
         }
         aria-expanded={isOpen}
       >
-        <svg
-          className="sidebar-toggle-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          {isOpen ? (
-            <>
-              <path d="M6 6l12 12" />
-              <path d="M18 6 6 18" />
-            </>
-          ) : (
-            <>
-              <path d="M4 7h16" />
-              <path d="M4 12h16" />
-              <path d="M4 17h16" />
-            </>
-          )}
-        </svg>
+        <span className="sidebar-toggle-icon" aria-hidden="true">
+          {isOpen ? <X size={16} strokeWidth={2.4} /> : <Menu size={16} strokeWidth={2.4} />}
+        </span>
 
         <span className="sidebar-toggle-label">
           {isOpen
@@ -92,7 +75,7 @@ function Sidebar({
                 title={tab.title[language]}
               >
                 <span className="sidebar-link-icon" aria-hidden="true">
-                  {tab.icon ? <tab.icon size={17} strokeWidth={1.8} /> : null}
+                  {tab.icon ? <tab.icon size={19} strokeWidth={2} /> : null}
                 </span>
                 <span className="sidebar-link-copy">{tab.title[language]}</span>
               </button>

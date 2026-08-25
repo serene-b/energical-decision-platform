@@ -1,0 +1,36 @@
+try:
+    from .services.pipeline.service import *
+    from .services.pipeline.service import (
+        sanitize_for_json,
+        detect_dataset_type_from_df,
+        _build_web_analytics_from_df,
+        clean_currency_series,
+        normalize_customer_ids,
+        normalize_shipping_method,
+        normalize_payment_method,
+        process_dataset,
+        generate_pdf_report,
+        create_pipeline_run,
+        get_pipeline_run_by_id,
+        get_recent_pipeline_runs,
+        get_cleaned_dataset_csv,
+        get_all_cleaned_zip,
+    )
+except (ImportError, ValueError):
+    from services.pipeline.service import *
+    from services.pipeline.service import (
+        sanitize_for_json,
+        detect_dataset_type_from_df,
+        _build_web_analytics_from_df,
+        clean_currency_series,
+        normalize_customer_ids,
+        normalize_shipping_method,
+        normalize_payment_method,
+        process_dataset,
+        generate_pdf_report,
+        create_pipeline_run,
+        get_pipeline_run_by_id,
+        get_recent_pipeline_runs,
+        get_cleaned_dataset_csv,
+        get_all_cleaned_zip,
+    )

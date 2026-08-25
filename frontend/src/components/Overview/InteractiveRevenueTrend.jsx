@@ -117,7 +117,7 @@ function InteractiveRevenueTrend({ resource, language = "en" }) {
   const layout = {
     autosize: true,
     height: 340,
-    margin: { l: 54, r: 18, t: partialPoints.length ? 42 : 18, b: 58 },
+    margin: { l: 64, r: 18, t: partialPoints.length ? 42 : 18, b: 58 },
     paper_bgcolor: "transparent",
     plot_bgcolor: "transparent",
     hovermode: "x unified",
@@ -135,8 +135,8 @@ function InteractiveRevenueTrend({ resource, language = "en" }) {
       fixedrange: false,
     },
     yaxis: {
-      title: { text: "DZD", font: { size: 10 }, standoff: 8 },
-      tickformat: "~s",
+      title: { text: "DZD", font: { size: 10 } },
+      tickformat: ",.0f",
       tickfont: { family: "IBM Plex Mono, monospace", size: 10 },
       gridcolor: "#e4e8f0",
       linecolor: "#c5cedc",

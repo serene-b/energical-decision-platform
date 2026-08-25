@@ -943,6 +943,11 @@ function DataUpload({ language = "en", onPipelineComplete }) {
     return null;
   };
 
+  // Derive whether the batch can actually be submitted right now
+  const hasUnidentified = selectedRows.some((row) => !row.dataset);
+  const hasInvalidCsv = selectedRows.some((row) => row.preview.parseError || row.preview.malformedRows);
+  const canSubmit = files.length > 0 && !hasUnidentified && !hasInvalidCsv && !isSubmitting;
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
@@ -1091,10 +1096,29 @@ function DataUpload({ language = "en", onPipelineComplete }) {
                 )}
               </div>
               <input ref={replaceInputRef} className="replace-input" type="file" accept=".csv,text/csv" onChange={handleReplacement} />
-              <button className="button button--primary upload-submit" type="submit" disabled={!files.length || isSubmitting}>
+              <button
+                className="button button--primary upload-submit"
+                type="submit"
+                disabled={!canSubmit}
+                title={
+                  !files.length
+                    ? "Add CSV files to the batch first"
+                    : hasUnidentified
+                    ? "All files must have a dataset type — use the dropdown in the Dataset column to identify any file showing \"Needs identification\""
+                    : hasInvalidCsv
+                    ? "One or more files have CSV formatting issues — review and replace them"
+                    : undefined
+                }
+              >
                 {isSubmitting ? <RefreshCw className="spin" size={17} /> : <ArrowRight size={17} />}
                 {isSubmitting ? text.processing : `${text.processFiles} ${files.length}`}
               </button>
+              {files.length > 0 && hasUnidentified && (
+                <p className="upload-inline-error" style={{ marginTop: "0.5rem" }}>
+                  <AlertTriangle size={15} />
+                  <span>Each file must be assigned a dataset type before processing. Use the dropdown in the <strong>Dataset</strong> column for any file showing <em>Needs identification</em>.</span>
+                </p>
+              )}
             </div>
 
             {clientRejections.length > 0 && <div className="upload-inline-error"><AlertTriangle size={17} /><span>{text.clientFileError}</span></div>}

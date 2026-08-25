@@ -3,7 +3,6 @@ import { ArrowUpRight } from "lucide-react";
 import { useAnalyticsResource } from "../api/useApiResource.js";
 import AnalyticsState from "../components/Common/AnalyticsState.jsx";
 import ScrollReveal from "../components/Common/ScrollReveal.jsx";
-import { selectChartTickIndexes } from "../utils/chartTicks.js";
 import { formatNumber } from "../utils/formatters.js";
 
 const copy = {
@@ -58,56 +57,24 @@ function periodLabel(period, partialMonths = []) {
   return partialMonths.includes(period) ? `${period} MTD` : period;
 }
 
-function chartPeriodLabel(period, language) {
-  const match = String(period).match(/^(\d{4})-(\d{2})/);
-  if (!match) return period;
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
-  return new Intl.DateTimeFormat(
-    language === "fr" ? "fr-DZ" : "en-DZ",
-    { month: "short", year: "numeric", timeZone: "UTC" },
-  ).format(date);
-}
-
-function compactRevenue(amount, language) {
-  return new Intl.NumberFormat(
-    language === "fr" ? "fr-DZ" : "en-DZ",
-    { notation: "compact", maximumFractionDigits: 1 },
-  ).format(amount);
-}
-
 function MiniTrend({ points, language, partialMonths = [], onSelect }) {
   if (!points?.length) return <p className="calm-empty">No trend data.</p>;
-  const width = 760;
-  const height = 270;
-  const plot = { left: 72, right: 738, top: 24, bottom: 208 };
-  const maxRevenue = Math.max(...points.map((point) => Number(point.revenue || 0)), 1);
-  const positions = points.map((point, index) => ({
-    point,
-    x: plot.left + index / Math.max(points.length - 1, 1) * (plot.right - plot.left),
-    y: plot.bottom - Number(point.revenue || 0) / maxRevenue * (plot.bottom - plot.top),
-  }));
-  const line = positions.map(({ x, y }) => `${x},${y}`).join(" ");
-  const area = `${plot.left},${plot.bottom} ${line} ${plot.right},${plot.bottom}`;
-  const tickIndexes = selectChartTickIndexes(points.length);
-  const gridValues = [1, 0.66, 0.33, 0];
+  const width = 700;
+  const height = 230;
+  const max = Math.max(...points.map((item) => Number(item.revenue || 0)), 1);
+  const line = points.map((item, index) => {
+    const x = 18 + index / Math.max(points.length - 1, 1) * (width - 36);
+    const y = 188 - Number(item.revenue || 0) / max * 150;
+    return `${x},${y}`;
+  }).join(" ");
   return (
     <div className="calm-chart-wrap">
       <svg className="calm-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={language === "fr" ? "Évolution du revenu" : "Revenue trend"}>
-        <defs>
-          <linearGradient id="sales-revenue-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-line)" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="var(--chart-line)" stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
-        {gridValues.map((ratio) => {
-          const y = plot.bottom - ratio * (plot.bottom - plot.top);
-          return <g key={ratio}><line className="calm-chart-grid" x1={plot.left} x2={plot.right} y1={y} y2={y} /><text className="calm-chart-y-label" x={plot.left - 14} y={y + 4} textAnchor="end">{compactRevenue(maxRevenue * ratio, language)}</text></g>;
-        })}
-        <polygon className="calm-chart-area" points={area} />
+        {[0, 1, 2].map((index) => <line key={index} className="calm-chart-grid" x1="18" x2="682" y1={38 + index * 75} y2={38 + index * 75} />)}
         <polyline className="calm-chart-line" points={line} />
-        {positions.map(({ point, x, y }, index) => {
-          const isLatest = index === positions.length - 1;
-          return <g key={point.period}><title>{`${chartPeriodLabel(point.period, language)} · ${money(point.revenue, language)} · ${formatNumber(point.orders, language)} orders`}</title><circle className={`calm-chart-point${isLatest ? " is-latest" : ""}`} cx={x} cy={y} r={isLatest ? 5.5 : 3.5} tabIndex="0" role="button" aria-label={`${periodLabel(point.period, partialMonths)}: ${money(point.revenue, language)}`} onClick={() => onSelect?.(point)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect?.(point); } }} />{tickIndexes.has(index) && <><line className="calm-chart-tick" x1={x} x2={x} y1={plot.bottom + 1} y2={plot.bottom + 8} /><text className="calm-chart-label" x={x} y={plot.bottom + 29} textAnchor="middle">{chartPeriodLabel(point.period, language)}{partialMonths.includes(point.period) ? " MTD" : ""}</text></>}</g>;
+        {points.map((item, index) => {
+          const [x, y] = line.split(" ")[index].split(",");
+          return <g key={item.period}><circle className="calm-chart-point" cx={x} cy={y} r="5" tabIndex="0" role="button" aria-label={`${periodLabel(item.period, partialMonths)}: ${money(item.revenue, language)}`} onClick={() => onSelect?.(item)} /><text className="calm-chart-label" x={x} y="214" textAnchor="middle">{item.period.slice(5)}{partialMonths.includes(item.period) ? " MTD" : ""}</text></g>;
         })}
       </svg>
     </div>

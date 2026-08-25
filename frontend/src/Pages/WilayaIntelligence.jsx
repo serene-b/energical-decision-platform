@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, Sparkles, X } from "lucide-react";
 
 import { useAnalyticsResource } from "../api/useApiResource.js";
@@ -9,48 +10,48 @@ import { formatNumber } from "../utils/formatters.js";
 
 const copy = {
   en: {
-    eyebrow: "Regional performance",
+    eyebrow: "Regional Performance",
     title: "Wilaya Intelligence",
-    description: "Explore realized revenue, order volume, clients, and factual movement for verified wilayas.",
-    active: "Verified wilayas",
-    top: "Top wilaya",
-    revenue: "Revenue",
-    orders: "Orders",
+    description: "Explore sales revenue, order volumes, client distribution, and regional growth across Algeria.",
+    active: "Active Wilayas",
+    top: "Top Wilaya",
+    revenue: "Total Revenue",
+    orders: "Total Orders",
     clients: "Clients",
-    share: "Share",
-    growth: "Latest-month movement",
-    map: "Algeria map",
-    ranking: "Regional ranking",
-    open: "Open detail",
-    close: "Close panel",
-    askAi: "Ask AI",
-    noMetrics: "No metric is available for this wilaya in the current run.",
-    boundary: "Boundary only",
-    scope: "Realized order scope",
+    share: "Market Share",
+    growth: "MoM Growth",
+    map: "Algeria Regional Map",
+    ranking: "Wilaya Rankings",
+    open: "Explore Details",
+    close: "Close Panel",
+    askAi: "Ask Assistant",
+    noMetrics: "No orders recorded for this wilaya in the selected period.",
+    boundary: "No Order History",
+    scope: "Live Order Scope",
     outside: "Click outside or press Escape to close.",
-    notes: "Methodology notes",
+    notes: "Data & Methodology",
   },
   fr: {
-    eyebrow: "Performance régionale",
-    title: "Intelligence des wilayas",
-    description: "Explorez le revenu confirmé, le volume de commandes, les clients et l’évolution mensuelle par wilaya normalisée.",
-    active: "Wilayas actives",
-    top: "Wilaya en tête",
-    revenue: "Revenu",
+    eyebrow: "Performance Régionale",
+    title: "Intelligence des Wilayas",
+    description: "Analysez le chiffre d’affaires, les volumes de commandes et la croissance par wilaya en Algérie.",
+    active: "Wilayas Actives",
+    top: "Wilaya en Tête",
+    revenue: "Chiffre d’Affaires",
     orders: "Commandes",
     clients: "Clients",
-    share: "Part",
-    growth: "Évolution du dernier mois",
+    share: "Part Régionale",
+    growth: "Croissance MoM",
     map: "Carte d’Algérie",
-    ranking: "Classement régional",
-    open: "Ouvrir le détail",
-    close: "Fermer le panneau",
+    ranking: "Classement des Wilayas",
+    open: "Voir le Détail",
+    close: "Fermer",
     askAi: "Demander à l’IA",
-    noMetrics: "Aucune métrique n’est disponible pour cette wilaya dans le traitement actuel.",
-    boundary: "Limite uniquement",
-    scope: "Périmètre des commandes confirmées",
+    noMetrics: "Aucune commande enregistrée pour cette wilaya sur la période.",
+    boundary: "Aucune Commande",
+    scope: "Périmètre Commandes",
     outside: "Cliquez à l’extérieur ou appuyez sur Échap pour fermer.",
-    notes: "Notes méthodologiques",
+    notes: "Méthodologie & Données",
   },
 };
 
@@ -89,7 +90,89 @@ function WilayaIntelligence({ language = "en", onAskAI }) {
         </>}
       </AnalyticsState>
 
-      {selectedId && <div className="regional-drawer-backdrop" role="presentation" onMouseDown={() => setSelectedId(null)}><aside className="regional-drawer" role="dialog" aria-modal="true" aria-labelledby="regional-detail-title" onMouseDown={(event) => event.stopPropagation()}><button type="button" className="icon-button regional-drawer-close" onClick={() => setSelectedId(null)} aria-label={text.close}><X size={18} /></button>{selected ? <><p className="section-eyebrow">{text.eyebrow}</p><h3 id="regional-detail-title">{selected.label}</h3><dl className="regional-metrics"><div><dt>{text.revenue}</dt><dd>{moneyInMillions(selected.revenue)}</dd></div><div><dt>{text.orders}</dt><dd>{formatNumber(selected.orders, language)}</dd></div><div><dt>{text.clients}</dt><dd>{formatNumber(selected.clients, language)}</dd></div><div><dt>{text.share}</dt><dd>{selected.share}%</dd></div><div><dt>{text.growth}</dt><dd>{selected.growth == null ? "—" : `${selected.growth >= 0 ? "+" : ""}${selected.growth}%`}</dd></div></dl><p className="regional-drawer-note">{text.outside}</p><button type="button" className="button button--secondary" onClick={() => onAskAI?.({ page: "wilayas", selection_type: "wilaya", selection: selected.label, approved_metrics: { revenue: selected.revenue, orders: selected.orders, clients: selected.clients, share: selected.share, growth: selected.growth } })}><Sparkles size={15} />{text.askAi}<ArrowUpRight size={14} /></button></> : <p>{text.noMetrics}</p>}</aside></div>}
+      {selectedId &&
+        createPortal(
+          <div
+            className="regional-drawer-backdrop"
+            role="presentation"
+            onMouseDown={() => setSelectedId(null)}
+          >
+            <aside
+              className="regional-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="regional-detail-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="icon-button regional-drawer-close"
+                onClick={() => setSelectedId(null)}
+                aria-label={text.close}
+              >
+                <X size={18} />
+              </button>
+              {selected ? (
+                <>
+                  <p className="section-eyebrow">{text.eyebrow}</p>
+                  <h3 id="regional-detail-title">{selected.label}</h3>
+                  <dl className="regional-metrics">
+                    <div>
+                      <dt>{text.revenue}</dt>
+                      <dd>{moneyInMillions(selected.revenue)}</dd>
+                    </div>
+                    <div>
+                      <dt>{text.orders}</dt>
+                      <dd>{formatNumber(selected.orders, language)}</dd>
+                    </div>
+                    <div>
+                      <dt>{text.clients}</dt>
+                      <dd>{formatNumber(selected.clients, language)}</dd>
+                    </div>
+                    <div>
+                      <dt>{text.share}</dt>
+                      <dd>{selected.share}%</dd>
+                    </div>
+                    <div>
+                      <dt>{text.growth}</dt>
+                      <dd>
+                        {selected.growth == null
+                          ? "—"
+                          : `${selected.growth >= 0 ? "+" : ""}${selected.growth}%`}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="regional-drawer-note">{text.outside}</p>
+                  <button
+                    type="button"
+                    className="button button--secondary"
+                    onClick={() =>
+                      onAskAI?.({
+                        page: "wilayas",
+                        selection_type: "wilaya",
+                        selection: selected.label,
+                        approved_metrics: {
+                          revenue: selected.revenue,
+                          orders: selected.orders,
+                          clients: selected.clients,
+                          share: selected.share,
+                          growth: selected.growth,
+                        },
+                      })
+                    }
+                  >
+                    <Sparkles size={15} />
+                    {text.askAi}
+                    <ArrowUpRight size={14} />
+                  </button>
+                </>
+              ) : (
+                <p>{text.noMetrics}</p>
+              )}
+            </aside>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }

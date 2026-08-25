@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   BellRing,
+  Bot,
   Boxes,
   LayoutDashboard,
   MapPinned,
@@ -19,6 +20,7 @@ import {
   ContextualAssistantDrawer,
   ContextualInsightDrawer,
 } from "./components/Common/ContextualAssistant.jsx";
+import IntegrationSettingsModal from "./components/Common/IntegrationSettingsModal.jsx";
 
 import Overview from "./Pages/Overview.jsx";
 import SalesIntelligence from "./Pages/SalesIntelligence.jsx";
@@ -136,6 +138,7 @@ function App() {
   });
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [insight, setInsight] = useState(null);
   const [assistantContext, setAssistantContext] = useState(null);
 
@@ -247,6 +250,7 @@ function App() {
           theme={theme}
           onThemeChange={setTheme}
           onOpenSearch={handleOpenSearch}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         <div className="page-transition" key={activeTabId}>
@@ -261,6 +265,16 @@ function App() {
 
         <Footer />
       </div>
+
+      <IntegrationSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        language={language}
+        onSaved={() => {
+          setSettingsOpen(false);
+          void refreshDatabaseState();
+        }}
+      />
 
       <ContextualInsightDrawer
         insight={insight}
@@ -280,6 +294,7 @@ function App() {
         type="button"
         className="assistant-launcher"
         aria-label={language === "fr" ? "Ouvrir l’assistant IA" : "Open AI assistant"}
+        title={language === "fr" ? "Assistant IA Energical" : "Energical AI Assistant"}
         onClick={() => handleAskAI(insight?.aiContext || insight || {
           page: activeTabId,
           selection_type: activeTabId === "upload" && latestPipelineRun?.result ? "pipeline_summary" : "current_page",
@@ -293,8 +308,12 @@ function App() {
           } : {},
         })}
       >
-        <span className="assistant-launcher-pulse" aria-hidden="true" />
-        <span aria-hidden="true">✦</span>
+        <span className="assistant-launcher-icon">
+          <Bot size={17} strokeWidth={2} />
+        </span>
+        <span className="assistant-launcher-label">
+          {language === "fr" ? "Assistant IA" : "Ask AI"}
+        </span>
       </button>
 
       <CommandPalette
