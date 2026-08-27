@@ -862,15 +862,19 @@ def get_decisions_data() -> Dict[str, Any]:
                 "count": risk_count,
             })
 
-    df_neg = execute_query("SELECT COUNT(*) AS cnt FROM transactions WHERE has_negative_price IS TRUE")
-        if neg_count > 0:
-            alerts.append({
-                "code": "NEGATIVE_PRICE_ANOMALY",
-                "title": "Negative Price Records",
-                "message": f"{neg_count} transaction lines contain negative unit prices — these may be returns or adjustments.",
-                "severity": "warning",
-                "count": neg_count,
-            })
+        df_neg = execute_query(
+        "SELECT COUNT(*) AS cnt FROM transactions WHERE has_negative_price IS TRUE"
+    )
+    neg_count = int(df_neg.iloc[0]["cnt"]) if df_neg is not None and not df_neg.empty else 0
+
+    if neg_count > 0:
+        alerts.append({
+            "code": "NEGATIVE_PRICE_ANOMALY",
+            "title": "Negative Price Records",
+            "message": f"{neg_count} transaction lines contain negative unit prices — these may be returns or adjustments.",
+            "severity": "warning",
+            "count": neg_count,
+        })
 
     df_wil = execute_query(
         "SELECT wilaya_normalized, SUM(order_total_amount) AS rev FROM orders "
